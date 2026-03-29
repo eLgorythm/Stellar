@@ -95,23 +95,18 @@ async fn write_spake2_exchange_message<W: AsyncWriteExt + Unpin>(writer: &mut W,
 }
 
 async fn write_confirmation_message<W: AsyncWriteExt + Unpin>(writer: &mut W, payload: &[u8]) -> anyhow::Result<()> {
-    debug!("Preparing to send SPAKE2 Confirmation message: Type={}, Len={}, Payload={}", MSG_TYPE_CONFIRMATION, payload.len(), hex::encode(payload));
-    writer.write_u32_le(MSG_TYPE_CONFIRMATION).await?;
-    debug!("write_confirmation_message: wrote MSG_TYPE_CONFIRMATION");
-    writer.write_u32_le(payload.len() as u32).await?;
-    debug!("write_confirmation_message: wrote payload length {}", payload.len());
-    writer.write_all(payload).await?;
-    debug!("write_confirmation_message: wrote payload bytes");
-    writer.flush().await?;
-    debug!("Sent SPAKE2 Confirmation message: Type={}, Len={}, Payload={}", MSG_TYPE_CONFIRMATION, payload.len(), hex::encode(payload));
+    debug!("Sending SPAKE2 Confirmation message: Type={}, Len={}", MSG_TYPE_CONFIRMATION, payload.len());
+    write_message(writer, MSG_TYPE_CONFIRMATION, payload).await?;
     Ok(())
 }
 
-/// Format variable-length message PARE: [type: u32 LE][len: u32 LE][payload]
-/// Note: only variable-length pairing payloads such as PeerInfo use this framing.
+/// Format variable-length message PARE: [type: u32 LE][len: u16 BE][payload]
+/// Note: The framing uses a 2-byte Big Endian length prefix for the payload, 
+/// which matches the "ADP" framing used by most modern Android adbd pairing implementations.
 async fn write_message<W: AsyncWriteExt + Unpin>(writer: &mut W, msg_type: u32, payload: &[u8]) -> anyhow::Result<()> {
     writer.write_u32_le(msg_type).await?;
-    writer.write_u32_le(payload.len() as u32).await?;
+    // Using u16 (Big Endian) to match the server's expected 2-byte length prefix (00 20)
+    writer.write_u16(payload.len() as u16).await?;
     writer.write_all(payload).await?;
     writer.flush().await?;
     debug!("Sent variable-length message: Type={}, Len={}, Payload={}", msg_type, payload.len(), hex::encode(payload));
