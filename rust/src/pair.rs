@@ -86,12 +86,12 @@ fn compute_conf_hmac(key: &[u8], payload: &[u8]) -> anyhow::Result<Vec<u8>> {
 }
 
 /// Format message PARE for SPAKE2 Exchange: [type: u32 LE][payload]
-/// Note: Protokol Pairing ADB untuk SPAKE2 Exchange mungkin tidak menyertakan field panjang.
+/// Android client/server often use raw exchange payload without explicit length here.
 async fn write_spake2_exchange_message<W: AsyncWriteExt + Unpin>(writer: &mut W, msg_type: u32, payload: &[u8]) -> anyhow::Result<()> {
     writer.write_u32_le(msg_type).await?;
     writer.write_all(payload).await?;
     writer.flush().await?;
-    debug!("Sent SPAKE2 Exchange message: Type={}, Len={}", msg_type, payload.len());
+    debug!("Sent SPAKE2 Exchange message: Type={}, Len={}, Payload={}", msg_type, payload.len(), hex::encode(payload));
     Ok(())
 }
 
@@ -102,7 +102,7 @@ async fn write_message<W: AsyncWriteExt + Unpin>(writer: &mut W, msg_type: u32, 
     writer.write_u32_le(payload.len() as u32).await?;
     writer.write_all(payload).await?;
     writer.flush().await?;
-    debug!("Sent variable-length message: Type={}, Len={}", msg_type, payload.len());
+    debug!("Sent variable-length message: Type={}, Len={}, Payload={}", msg_type, payload.len(), hex::encode(payload));
     Ok(())
 }
 
@@ -125,7 +125,7 @@ async fn read_message<R: AsyncReadExt + Unpin>(reader: &mut R) -> anyhow::Result
     Ok((msg_type, payload))
 }
 
-async fn read_confirmation_message<R: AsyncBufReadExt + Unpin>(reader: &mut R) -> anyhow::Result<Vec<u8>> {
+async fn read_confirmation_message<R: AsyncReadExt + Unpin>(reader: &mut R) -> anyhow::Result<Vec<u8>> {
     let msg_type = reader.read_u32_le().await?;
     debug!("Read message header for SPAKE2 Confirmation: Type={}", msg_type);
 
@@ -133,34 +133,22 @@ async fn read_confirmation_message<R: AsyncBufReadExt + Unpin>(reader: &mut R) -
         return Err(anyhow::anyhow!("Unexpected message type for SPAKE2 Confirmation: {}. Expected MSG_TYPE_CONFIRMATION (2).", msg_type));
     }
 
-    let available = reader.fill_buf().await?;
-
-    if available.len() >= 4 {
-        let possible_len = u32::from_le_bytes([available[0], available[1], available[2], available[3]]);
-        if possible_len == 32 && available.len() >= 4 + 32 {
-            let payload = available[4..4 + 32].to_vec();
-            reader.consume(4 + 32);
-            debug!("Detected length-prefixed SPAKE2 Confirmation payload: 32 bytes");
-            return Ok(payload);
-        }
+    let payload_len = reader.read_u32_le().await?;
+    if payload_len != 32 && payload_len != 33 {
+        return Err(anyhow::anyhow!("Unexpected SPAKE2 Confirmation payload length: {}. Expected 32 or 33.", payload_len));
+    }
+    if payload_len > MAX_PAYLOAD {
+        return Err(anyhow::anyhow!("Payload too large: {} bytes", payload_len));
     }
 
-    if available.len() >= 32 {
-        let payload = available[..32].to_vec();
-        reader.consume(32);
-        debug!("Detected non-length-prefixed SPAKE2 Confirmation payload: 32 bytes");
-        return Ok(payload);
-    }
-
-    let mut payload = vec![0u8; 32];
+    let mut payload = vec![0u8; payload_len as usize];
     reader.read_exact(&mut payload).await?;
-    debug!("Read SPAKE2 Confirmation payload by exact read: 32 bytes");
+    debug!("Read length-prefixed SPAKE2 Confirmation payload: {} bytes, Payload={}", payload_len, hex::encode(&payload));
     Ok(payload)
 }
 
-/// Reads a SPAKE2 Exchange message, assuming a fixed 32-byte payload after the type.
-/// Ini adalah solusi jika server adbd tidak mengirimkan field panjang untuk MSG_TYPE_EXCHANGE,
-/// atau jika field tersebut disalahartikan.
+/// Reads a SPAKE2 Exchange message in a hybrid Android ADB pairing format.
+/// First it tries to detect [len: u32 LE] if present, otherwise it falls back to raw 32/33-byte payload.
 async fn read_spake2_exchange_message<R: AsyncBufReadExt + Unpin>(reader: &mut R) -> anyhow::Result<(u32, Vec<u8>)> {
     let msg_type = reader.read_u32_le().await?;
     debug!("Read message header for SPAKE2 Exchange: Type={}", msg_type);
@@ -169,18 +157,21 @@ async fn read_spake2_exchange_message<R: AsyncBufReadExt + Unpin>(reader: &mut R
         return Err(anyhow::anyhow!("Unexpected message type for SPAKE2 Exchange: {}. Expected MSG_TYPE_EXCHANGE (1).", msg_type));
     }
 
-    // Peek the next bytes so we can detect either:
-    // - [type][len][payload]
-    // - [type][32-byte payload]
-    // - [type][33-byte payload with SPAKE2 prefix]
     let available = reader.fill_buf().await?;
-
     if available.len() >= 4 {
         let possible_len = u32::from_le_bytes([available[0], available[1], available[2], available[3]]);
-        if (possible_len == 32 || possible_len == 33) && available.len() >= 4 + possible_len as usize {
-            let payload = available[4..4 + possible_len as usize].to_vec();
-            reader.consume(4 + possible_len as usize);
-            debug!("Detected length-prefixed SPAKE2 Exchange payload: {} bytes", possible_len);
+        if possible_len == 32 || possible_len == 33 {
+            if available.len() >= 4 + possible_len as usize {
+                let payload = available[4..4 + possible_len as usize].to_vec();
+                reader.consume(4 + possible_len as usize);
+                debug!("Detected length-prefixed SPAKE2 Exchange payload: {} bytes, Payload={}", possible_len, hex::encode(&payload));
+                return Ok((msg_type, payload));
+            }
+
+            reader.consume(4);
+            let mut payload = vec![0u8; possible_len as usize];
+            reader.read_exact(&mut payload).await?;
+            debug!("Read length-prefixed SPAKE2 Exchange payload by exact read: {} bytes, Payload={}", possible_len, hex::encode(&payload));
             return Ok((msg_type, payload));
         }
     }
@@ -190,7 +181,7 @@ async fn read_spake2_exchange_message<R: AsyncBufReadExt + Unpin>(reader: &mut R
         if first == b'A' || first == b'B' || first == b'S' {
             let payload = available[..33].to_vec();
             reader.consume(33);
-            debug!("Detected non-length-prefixed SPAKE2 Exchange payload: 33 bytes (prefix present)");
+            debug!("Detected raw SPAKE2 Exchange payload: 33 bytes (prefix present), Payload={}", hex::encode(&payload));
             return Ok((msg_type, payload));
         }
     }
@@ -198,13 +189,13 @@ async fn read_spake2_exchange_message<R: AsyncBufReadExt + Unpin>(reader: &mut R
     if available.len() >= 32 {
         let payload = available[..32].to_vec();
         reader.consume(32);
-        debug!("Detected non-length-prefixed SPAKE2 Exchange payload: 32 bytes");
+        debug!("Detected raw SPAKE2 Exchange payload: 32 bytes, Payload={}", hex::encode(&payload));
         return Ok((msg_type, payload));
     }
 
     let mut payload = vec![0u8; 32];
     reader.read_exact(&mut payload).await?;
-    debug!("Read SPAKE2 Exchange payload by exact read: 32 bytes");
+    debug!("Read raw SPAKE2 Exchange payload by exact read: 32 bytes, Payload={}", hex::encode(&payload));
     Ok((msg_type, payload))
 }
 
@@ -313,10 +304,18 @@ pub async fn init_pairing(port: u16, pairing_code: String) -> anyhow::Result<Str
                 other => return Err(anyhow::anyhow!("Unexpected SPAKE2 prefix byte: {}", other)),
             };
 
-            let mut msg2_spake_for_finish = Vec::with_capacity(msg2_payload.len() + 1);
-            msg2_spake_for_finish.push(peer_prefix);
-            msg2_spake_for_finish.extend_from_slice(&msg2_payload);
-            debug!("Processing MSG2 with peer prefix: {}", peer_prefix);
+            let msg2_spake_for_finish = if msg2_payload.len() == 33 && (msg2_payload[0] == b'A' || msg2_payload[0] == b'B' || msg2_payload[0] == b'S') {
+                debug!("Received MSG2 with explicit SPAKE2 prefix: {}", msg2_payload[0]);
+                msg2_payload.clone()
+            } else if msg2_payload.len() == 32 {
+                let mut buf = Vec::with_capacity(33);
+                buf.push(peer_prefix);
+                buf.extend_from_slice(&msg2_payload);
+                debug!("Processing MSG2 by prepending peer prefix: {}", peer_prefix);
+                buf
+            } else {
+                return Err(anyhow::anyhow!("Unexpected SPAKE2 MSG2 payload length: {}", msg2_payload.len()));
+            };
 
             let shared_secret = state.finish(&msg2_spake_for_finish)
                 .map_err(|e| anyhow::anyhow!("SPAKE2 Error: {:?}", e))?;

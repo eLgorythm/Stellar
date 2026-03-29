@@ -918,6 +918,7 @@ dependencies = [
  "boring",
  "bytes",
  "flutter_rust_bridge",
+ "hex",
  "log",
  "once_cell",
  "prost",
