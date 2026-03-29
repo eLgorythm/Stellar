@@ -95,6 +95,15 @@ async fn write_spake2_exchange_message<W: AsyncWriteExt + Unpin>(writer: &mut W,
     Ok(())
 }
 
+async fn write_confirmation_message<W: AsyncWriteExt + Unpin>(writer: &mut W, payload: &[u8]) -> anyhow::Result<()> {
+    debug!("Preparing to send SPAKE2 Confirmation message: Type={}, Len={}, Payload={}", MSG_TYPE_CONFIRMATION, payload.len(), hex::encode(payload));
+    writer.write_u32_le(MSG_TYPE_CONFIRMATION).await?;
+    writer.write_all(payload).await?;
+    writer.flush().await?;
+    debug!("Sent SPAKE2 Confirmation message: Type={}, Len={}, Payload={}", MSG_TYPE_CONFIRMATION, payload.len(), hex::encode(payload));
+    Ok(())
+}
+
 /// Format variable-length message PARE: [type: u32 LE][len: u32 LE][payload]
 /// Note: only variable-length pairing payloads such as PeerInfo use this framing.
 async fn write_message<W: AsyncWriteExt + Unpin>(writer: &mut W, msg_type: u32, payload: &[u8]) -> anyhow::Result<()> {
@@ -125,7 +134,7 @@ async fn read_message<R: AsyncReadExt + Unpin>(reader: &mut R) -> anyhow::Result
     Ok((msg_type, payload))
 }
 
-async fn read_confirmation_message<R: AsyncReadExt + Unpin>(reader: &mut R) -> anyhow::Result<Vec<u8>> {
+async fn read_confirmation_message<R: AsyncBufReadExt + Unpin>(reader: &mut R) -> anyhow::Result<Vec<u8>> {
     let msg_type = reader.read_u32_le().await?;
     debug!("Read message header for SPAKE2 Confirmation: Type={}", msg_type);
 
@@ -133,17 +142,42 @@ async fn read_confirmation_message<R: AsyncReadExt + Unpin>(reader: &mut R) -> a
         return Err(anyhow::anyhow!("Unexpected message type for SPAKE2 Confirmation: {}. Expected MSG_TYPE_CONFIRMATION (2).", msg_type));
     }
 
-    let payload_len = reader.read_u32_le().await?;
-    if payload_len != 32 && payload_len != 33 {
-        return Err(anyhow::anyhow!("Unexpected SPAKE2 Confirmation payload length: {}. Expected 32 or 33.", payload_len));
-    }
-    if payload_len > MAX_PAYLOAD {
-        return Err(anyhow::anyhow!("Payload too large: {} bytes", payload_len));
+    let available = reader.fill_buf().await?;
+    if available.len() >= 4 {
+        let possible_len = u32::from_le_bytes([available[0], available[1], available[2], available[3]]);
+        if possible_len == 32 || possible_len == 33 {
+            if available.len() >= 4 + possible_len as usize {
+                let payload = available[4..4 + possible_len as usize].to_vec();
+                reader.consume(4 + possible_len as usize);
+                debug!("Detected length-prefixed SPAKE2 Confirmation payload: {} bytes, Payload={}", possible_len, hex::encode(&payload));
+                return Ok(payload);
+            }
+
+            reader.consume(4);
+            let mut payload = vec![0u8; possible_len as usize];
+            reader.read_exact(&mut payload).await?;
+            debug!("Read length-prefixed SPAKE2 Confirmation payload by exact read: {} bytes, Payload={}", possible_len, hex::encode(&payload));
+            return Ok(payload);
+        }
     }
 
-    let mut payload = vec![0u8; payload_len as usize];
+    if available.len() >= 33 {
+        let payload = available[..33].to_vec();
+        reader.consume(33);
+        debug!("Detected raw SPAKE2 Confirmation payload: 33 bytes, Payload={}", hex::encode(&payload));
+        return Ok(payload);
+    }
+
+    if available.len() >= 32 {
+        let payload = available[..32].to_vec();
+        reader.consume(32);
+        debug!("Detected raw SPAKE2 Confirmation payload: 32 bytes, Payload={}", hex::encode(&payload));
+        return Ok(payload);
+    }
+
+    let mut payload = vec![0u8; 32];
     reader.read_exact(&mut payload).await?;
-    debug!("Read length-prefixed SPAKE2 Confirmation payload: {} bytes, Payload={}", payload_len, hex::encode(&payload));
+    debug!("Read raw SPAKE2 Confirmation payload by exact read: 32 bytes, Payload={}", hex::encode(&payload));
     Ok(payload)
 }
 
@@ -278,6 +312,7 @@ pub async fn init_pairing(port: u16, pairing_code: String) -> anyhow::Result<Str
                 return Err(anyhow::anyhow!("Unexpected MSG1 size from spake2: {}", msg1_data.len()));
             };
             debug!("MSG1 prefix = {}, payload size = {}", my_prefix, msg1_payload_to_send.len());
+            debug!("MSG1 payload to send: {}", hex::encode(msg1_payload_to_send));
 
             // MSG1: Client Hello (Exchange)
             info!("Step 1/5: Sending SPAKE2 Exchange (Client)");
@@ -293,6 +328,8 @@ pub async fn init_pairing(port: u16, pairing_code: String) -> anyhow::Result<Str
             if m_type != MSG_TYPE_EXCHANGE {
                 return Err(anyhow::anyhow!("Unexpected message type during exchange: {}", m_type));
             }
+            debug!("Received MSG2 payload length: {}", msg2_payload.len());
+            debug!("MSG2 payload raw: {}", hex::encode(&msg2_payload));
 
             // --- TAHAP KRIPTOGRAFI (HKDF & HMAC) ---
             // The finish() method expects the peer's message to have the opposite SPAKE2 prefix.
@@ -326,7 +363,9 @@ pub async fn init_pairing(port: u16, pairing_code: String) -> anyhow::Result<Str
             // HMAC dihitung dari payload 32-byte yang diterima dari wire
             let msg3_data = compute_conf_hmac(&pairing_key, &msg2_payload)?;
             info!("Step 3/5: Sending HMAC Confirmation (Client)");
-            write_message(&mut ssl_write, MSG_TYPE_CONFIRMATION, &msg3_data).await?;
+            debug!("Computed MSG3 confirmation HMAC: {}", hex::encode(&msg3_data));
+            write_confirmation_message(&mut ssl_write, &msg3_data).await?;
+            debug!("MSG3 sent successfully");
 
             // MSG4: Menerima Konfirmasi Server
             info!("Step 4/5: Waiting for HMAC Confirmation (Server)");
@@ -334,6 +373,7 @@ pub async fn init_pairing(port: u16, pairing_code: String) -> anyhow::Result<Str
                 tokio::time::Duration::from_secs(5), 
                 read_confirmation_message(&mut ssl_reader)
             ).await.map_err(|_| anyhow::anyhow!("Timeout waiting for MSG4"))??;
+            debug!("Received MSG4 confirmation payload: {}", hex::encode(&msg4_payload));
             
             // Verifikasi HMAC server berdasarkan payload 32-byte yang kita kirim tadi
             let expected_server_conf = compute_conf_hmac(&pairing_key, msg1_payload_to_send)?;
