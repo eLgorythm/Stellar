@@ -88,10 +88,9 @@ fn compute_conf_hmac(key: &[u8], payload: &[u8]) -> anyhow::Result<Vec<u8>> {
 /// Format message PARE for SPAKE2 Exchange: [type: u32 LE][payload]
 /// Android client/server often use raw exchange payload without explicit length here.
 async fn write_spake2_exchange_message<W: AsyncWriteExt + Unpin>(writer: &mut W, msg_type: u32, payload: &[u8]) -> anyhow::Result<()> {
-    writer.write_u32_le(msg_type).await?;
-    writer.write_all(payload).await?;
-    writer.flush().await?;
-    debug!("Sent SPAKE2 Exchange message: Type={}, Len={}, Payload={}", msg_type, payload.len(), hex::encode(payload));
+    // Gunakan framing standar [Type][Len][Payload] untuk kompatibilitas yang lebih baik
+    debug!("Sending SPAKE2 Exchange message: Type={}, Len={}", msg_type, payload.len());
+    write_message(writer, msg_type, payload).await?;
     Ok(())
 }
 
