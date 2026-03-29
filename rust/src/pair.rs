@@ -4,24 +4,33 @@ use boring::pkey::PKey;
 use boring::rsa::Rsa;
 use boring::ssl::{SslConnector, SslMethod, SslVerifyMode};
 use boring::x509::{X509, X509Name};
-use bytes::{Buf, BufMut, BytesMut};
+use ring::{hkdf, hmac};
 use spake2::{Ed25519Group, Identity, Password, Spake2};
 use std::net::SocketAddr;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
-use log::{info, debug, error};
+use log::{info, debug, error, warn};
 use std::sync::RwLock;
 use crate::frb_generated::{SseEncode as _, *};
+use prost::Message;
 
-const ADB_VERSION: u32 = 0x01000000;
-const MAX_PAYLOAD: u32 = 1024 * 1024;
-const A_PARE: u32 = 0x45524150; // "PARE"
+const MAX_PAYLOAD: u32 = 4 * 1024 * 1024; // 4MB
 
-const PARE_MSG_TYPE_1: u32 = 1; // Client Hello
-const PARE_MSG_TYPE_2: u32 = 2; // Server Hello
-const PARE_MSG_TYPE_3: u32 = 3; // Client Response
-const PARE_MSG_TYPE_4: u32 = 4; // Server Response
-const PARE_MSG_TYPE_5: u32 = 5; // Client Final (Public Key)
+/// Message types sesuai PairingConnection.h AOSP
+const MSG_TYPE_EXCHANGE: u32 = 1;      // SPAKE2 Exchange
+const MSG_TYPE_CONFIRMATION: u32 = 2;   // SPAKE2 Confirmation (HMAC)
+const MSG_TYPE_PEER_INFO: u32 = 3;      // Protobuf PeerInfo
+
+/// Protobuf structure untuk PeerInfo sesuai adb_pairing.proto
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PeerInfo {
+    #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(bytes = "vec", tag = "2")]
+    pub public_key: ::prost::alloc::vec::Vec<u8>,
+    #[prost(int32, tag = "3")]
+    pub type_: i32,
+}
 
 static LOG_SINK: RwLock<Option<StreamSink<String>>> = RwLock::new(None);
 
@@ -53,62 +62,116 @@ impl log::Log for FlutterLogger {
     fn flush(&self) {}
 }
 
-#[derive(Debug)]
-struct AdbPacket {
-    command: u32,
-    arg0: u32,
-    arg1: u32,
-    payload: Vec<u8>,
+/// Derivasi kunci pairing menggunakan HKDF-SHA256 sesuai standar AOSP
+fn derive_pairing_key(shared_secret: &[u8]) -> anyhow::Result<[u8; 32]> {
+    let salt = hkdf::Salt::new(hkdf::HKDF_SHA256, &[]);
+    let prk = salt.extract(shared_secret);
+    let info = [b"adb pairing_auth" as &[u8]];
+    let mut okm = [0u8; 32];
+    
+    prk.expand(&info, hkdf::HKDF_SHA256)
+        .map_err(|_| anyhow::anyhow!("HKDF expand failed"))?
+        .fill(&mut okm)
+        .map_err(|_| anyhow::anyhow!("HKDF fill failed"))?;
+        
+    Ok(okm)
 }
 
-impl AdbPacket {
-    fn serialize(&self) -> Vec<u8> {
-        let mut buf = BytesMut::with_capacity(24 + self.payload.len());
-        buf.put_u32_le(self.command);
-        buf.put_u32_le(self.arg0);
-        buf.put_u32_le(self.arg1);
-        buf.put_u32_le(self.payload.len() as u32);
-        let checksum = self.calculate_checksum();
-        buf.put_u32_le(checksum);
-        buf.put_u32_le(self.command ^ 0xFFFFFFFF);
-        buf.put_slice(&self.payload);
+/// Hitung HMAC-SHA256 untuk konfirmasi pertukaran kunci
+fn compute_conf_hmac(key: &[u8], payload: &[u8]) -> anyhow::Result<Vec<u8>> {
+    let s_key = hmac::Key::new(hmac::HMAC_SHA256, key);
+    let tag = hmac::sign(&s_key, payload);
+    Ok(tag.as_ref().to_vec())
+}
 
-        let result = buf.to_vec();
-        debug!("Outgoing Packet: Cmd=0x{:08X}, Arg0={}, Arg1={}, Len={}, Checksum=0x{:08X}", self.command, self.arg0, self.arg1, self.payload.len(), checksum);
-        result
+/// Format message PARE for SPAKE2 Exchange: [type: u32 LE][payload]
+/// Note: Protokol Pairing ADB untuk SPAKE2 Exchange mungkin tidak menyertakan field panjang.
+async fn write_spake2_exchange_message<W: AsyncWriteExt + Unpin>(writer: &mut W, msg_type: u32, payload: &[u8]) -> anyhow::Result<()> {
+    writer.write_u32_le(msg_type).await?;
+    writer.write_all(payload).await?;
+    writer.flush().await?;
+    debug!("Sent SPAKE2 Exchange message: Type={}, Len={}", msg_type, payload.len());
+    Ok(())
+}
+
+/// Format message PARE: [type: u32 LE][len: u32 LE][payload]
+/// Note: Protokol Pairing ADB menggunakan Little Endian sesuai implementasi adbd AOSP
+async fn write_message<W: AsyncWriteExt + Unpin>(writer: &mut W, msg_type: u32, payload: &[u8]) -> anyhow::Result<()> {
+    writer.write_u32_le(msg_type).await?;
+    writer.write_u32_le(payload.len() as u32).await?;
+    writer.write_all(payload).await?;
+    writer.flush().await?;
+    debug!("Sent message: Type={}, Len={}", msg_type, payload.len());
+    Ok(())
+}
+
+async fn read_message<R: AsyncReadExt + Unpin>(reader: &mut R) -> anyhow::Result<(u32, Vec<u8>)> {
+    let msg_type = reader.read_u32_le().await?;
+    let payload_len = reader.read_u32_le().await?;
+    debug!("Read message header: Type={}, Len={}", msg_type, payload_len);
+
+    if payload_len > MAX_PAYLOAD {
+        return Err(anyhow::anyhow!("Payload too large: {} bytes (Type={})", payload_len, msg_type));
     }
 
-    fn calculate_checksum(&self) -> u32 {
-        self.payload.iter().map(|&b| b as u32).fold(0u32, |acc, x| acc.wrapping_add(x))
+    let mut payload = vec![0u8; payload_len as usize];
+    if payload_len > 0 {
+        reader.read_exact(&mut payload).await?;
+    }
+    
+    debug!("Received message: Type={}, Len={}", msg_type, payload_len);
+    Ok((msg_type, payload))
+}
+
+/// Reads a SPAKE2 Exchange message, assuming a fixed 32-byte payload after the type.
+/// Ini adalah solusi jika server adbd tidak mengirimkan field panjang untuk MSG_TYPE_EXCHANGE,
+/// atau jika field tersebut disalahartikan.
+async fn read_spake2_exchange_message<R: AsyncRead + Unpin>(reader: &mut R) -> anyhow::Result<(u32, Vec<u8>)> {
+    let mut reader = BufReader::new(reader);
+    let msg_type = reader.read_u32_le().await?;
+    debug!("Read message header for SPAKE2 Exchange: Type={}", msg_type);
+
+    if msg_type != MSG_TYPE_EXCHANGE {
+        return Err(anyhow::anyhow!("Unexpected message type for SPAKE2 Exchange: {}. Expected MSG_TYPE_EXCHANGE (1).", msg_type));
     }
 
-    async fn read_from<R: AsyncReadExt + Unpin>(reader: &mut R) -> anyhow::Result<Self> {
-        let mut header = [0u8; 24];
-        reader.read_exact(&mut header).await?;
-        
-        let mut buf = &header[..];
-        let command = buf.get_u32_le();
-        let arg0 = buf.get_u32_le();
-        let _arg1 = buf.get_u32_le();
-        let payload_len = buf.get_u32_le();
-        let checksum = buf.get_u32_le();
-        let command_magic = buf.get_u32_le();
+    // Peek the next bytes so we can detect either:
+    // - [type][len][payload]
+    // - [type][32-byte payload]
+    // - [type][33-byte payload with SPAKE2 prefix]
+    let available = reader.fill_buf().await?;
 
-        // Verifikasi Magic: command ^ 0xFFFFFFFF
-        if command ^ 0xFFFFFFFF != command_magic {
-            return Err(anyhow::anyhow!("Invalid ADB Packet Magic"));
+    if available.len() >= 4 {
+        let possible_len = u32::from_le_bytes([available[0], available[1], available[2], available[3]]);
+        if (possible_len == 32 || possible_len == 33) && available.len() >= 4 + possible_len as usize {
+            let payload = available[4..4 + possible_len as usize].to_vec();
+            reader.consume(4 + possible_len as usize);
+            debug!("Detected length-prefixed SPAKE2 Exchange payload: {} bytes", possible_len);
+            return Ok((msg_type, payload));
         }
-
-        debug!("Incoming Header: Cmd=0x{:08X}, Arg0={}, Len={}, Checksum=0x{:08X}", command, arg0, payload_len, checksum);
-
-        let mut payload = vec![0u8; payload_len as usize];
-        if payload_len > 0 {
-            reader.read_exact(&mut payload).await?;
-            debug!("Incoming Payload ({} bytes): {:02X?}", payload_len, payload);
-        }
-
-        Ok(AdbPacket { command, arg0, arg1: _arg1, payload })
     }
+
+    if available.len() >= 33 {
+        let first = available[0];
+        if first == b'A' || first == b'B' || first == b'S' {
+            let payload = available[..33].to_vec();
+            reader.consume(33);
+            debug!("Detected non-length-prefixed SPAKE2 Exchange payload: 33 bytes (prefix present)");
+            return Ok((msg_type, payload));
+        }
+    }
+
+    if available.len() >= 32 {
+        let payload = available[..32].to_vec();
+        reader.consume(32);
+        debug!("Detected non-length-prefixed SPAKE2 Exchange payload: 32 bytes");
+        return Ok((msg_type, payload));
+    }
+
+    let mut payload = vec![0u8; 32];
+    reader.read_exact(&mut payload).await?;
+    debug!("Read SPAKE2 Exchange payload by exact read: 32 bytes");
+    Ok((msg_type, payload))
 }
 
 fn generate_credentials() -> anyhow::Result<(PKey<boring::pkey::Private>, X509)> {
@@ -148,7 +211,6 @@ pub fn init_logger(sink: StreamSink<String>) {
 
 pub async fn init_pairing(port: u16, pairing_code: String) -> anyhow::Result<String> {
     info!("init_pairing dimulai: port={}, code={}", port, pairing_code);
-    // Logger sekarang diinisialisasi melalui stream di awal aplikasi
 
     // 1. Generate sertifikat untuk identitas Stellar
     let (priv_key, cert) = tokio::task::spawn_blocking(generate_credentials)
@@ -172,70 +234,98 @@ pub async fn init_pairing(port: u16, pairing_code: String) -> anyhow::Result<Str
     match tokio_boring::connect(config, "localhost", stream).await {
         Ok(mut ssl_stream) => {
             // --- TAHAP SPAKE2 ---
-            
-            // MSG1: Client mengirim SPAKE2 Public Value
-            let (state, msg1_data) = Spake2::<Ed25519Group>::start_a(
+            // Identitas HARUS sesuai standar AOSP pairing_connection.cpp
+            let (mut state, msg1_data) = Spake2::<Ed25519Group>::start_a(
                 &Password::new(pairing_code.as_bytes()),
-                &Identity::new(b"client"),
-                &Identity::new(b"server"),
+                &Identity::new(b"adb pairing client"),
+                &Identity::new(b"adb pairing server"),
             );
 
-            info!("Sending MSG1 (Client Hello)");
-            let p1 = AdbPacket {
-                command: A_PARE,
-                arg0: PARE_MSG_TYPE_1,
-                arg1: 0,
-                payload: msg1_data,
+            // The spake2 crate's Ed25519Group produces 33 bytes: [prefix, point_bytes...]
+            // However, the ADB protocol expects exactly 32 bytes (the raw point).
+            // We must strip the prefix (usually 0x00 for Side A) before sending.
+            let (my_prefix, msg1_payload_to_send) = if msg1_data.len() == 33 {
+                (msg1_data[0], &msg1_data[1..])
+            } else {
+                return Err(anyhow::anyhow!("Unexpected MSG1 size from spake2: {}", msg1_data.len()));
             };
-            ssl_stream.write_all(&p1.serialize()).await?;
+            debug!("MSG1 prefix = {}, payload size = {}", my_prefix, msg1_payload_to_send.len());
+
+            // MSG1: Client Hello (Exchange)
+            info!("Step 1/5: Sending SPAKE2 Exchange (Client)");
+            write_spake2_exchange_message(&mut ssl_stream, MSG_TYPE_EXCHANGE, msg1_payload_to_send).await?;
 
             // MSG2: Menerima Server Public Value
-            let p2 = AdbPacket::read_from(&mut ssl_stream).await?;
-            if p2.command != A_PARE || p2.arg0 != PARE_MSG_TYPE_2 {
-                return Err(anyhow::anyhow!("Expected MSG2 (PARE, type 2), but got Cmd:0x{:X}, Type:{}", p2.command, p2.arg0));
-            }
-            info!("Received MSG2 (Server Hello)");
+            info!("Step 2/5: Waiting for SPAKE2 Exchange (Server)");
+            let (m_type, msg2_payload) = tokio::time::timeout(
+                tokio::time::Duration::from_secs(5), 
+                read_spake2_exchange_message(&mut ssl_stream) // Menggunakan fungsi khusus
+            ).await.map_err(|_| anyhow::anyhow!("Timeout waiting for SPAKE2 Exchange (MSG2)"))??;
 
-            // MSG3: Hitung shared secret dan kirim verifikasi (Confirmation)
-            let shared_secret = state.finish(&p2.payload)
-                .map_err(|e| anyhow::anyhow!("SPAKE2 Error: {:?}", e))?;
-            let msg3_data = shared_secret.clone();
-            
-            info!("Sending MSG3 (Client Response)");
-            let p3 = AdbPacket {
-                command: A_PARE,
-                arg0: PARE_MSG_TYPE_3,
-                arg1: 0,
-                payload: msg3_data,
+            if m_type != MSG_TYPE_EXCHANGE {
+                return Err(anyhow::anyhow!("Unexpected message type during exchange: {}", m_type));
+            }
+
+            // --- TAHAP KRIPTOGRAFI (HKDF & HMAC) ---
+            // The finish() method expects the peer's message to have the opposite SPAKE2 prefix.
+            let peer_prefix = match my_prefix {
+                0 => 1u8,
+                1 => 0u8,
+                b'A' => b'B',
+                b'B' => b'A',
+                other => return Err(anyhow::anyhow!("Unexpected SPAKE2 prefix byte: {}", other)),
             };
-            ssl_stream.write_all(&p3.serialize()).await?;
+
+            let mut msg2_spake_for_finish = Vec::with_capacity(msg2_payload.len() + 1);
+            msg2_spake_for_finish.push(peer_prefix);
+            msg2_spake_for_finish.extend_from_slice(&msg2_payload);
+            debug!("Processing MSG2 with peer prefix: {}", peer_prefix);
+
+            let shared_secret = state.finish(&msg2_spake_for_finish)
+                .map_err(|e| anyhow::anyhow!("SPAKE2 Error: {:?}", e))?;
+            
+            let pairing_key = derive_pairing_key(&shared_secret)?;
+            
+            // MSG3: Kirim HMAC konfirmasi client
+            // HMAC dihitung dari payload 32-byte yang diterima dari wire
+            let msg3_data = compute_conf_hmac(&pairing_key, &msg2_payload)?;
+            info!("Step 3/5: Sending HMAC Confirmation (Client)");
+            write_message(&mut ssl_stream, MSG_TYPE_CONFIRMATION, &msg3_data).await?;
 
             // MSG4: Menerima Konfirmasi Server
-            let p4 = AdbPacket::read_from(&mut ssl_stream).await?;
-            if p4.command != A_PARE || p4.arg0 != PARE_MSG_TYPE_4 {
-                return Err(anyhow::anyhow!("Verification failed at MSG4. Expected type 4, got {}", p4.arg0));
-            }
-            
-            // Verifikasi konfirmasi server secara kriptografis
-            if shared_secret != p4.payload {
-                return Err(anyhow::anyhow!("SPAKE2 Confirmation mismatch! Check pairing code."));
-            }
-            info!("MSG4 Verified. SPAKE2 exchange successful.");
+            info!("Step 4/5: Waiting for HMAC Confirmation (Server)");
+            let (m_type, msg4_payload) = tokio::time::timeout(
+                tokio::time::Duration::from_secs(5), 
+                read_message(&mut ssl_stream)
+            ).await.map_err(|_| anyhow::anyhow!("Timeout waiting for MSG4"))??;
 
-            // MSG5: Kirim "Certificate" (Public Key RSA Stellar) untuk dipercaya permanen
-            let pub_key_bytes = cert.public_key()?.public_key_to_pem()?;
-            info!("Sending MSG5 (Final Public Key). Length: {} bytes", pub_key_bytes.len());
+            if m_type != MSG_TYPE_CONFIRMATION {
+                return Err(anyhow::anyhow!("Unexpected message type during confirmation: {}", m_type));
+            }
             
-            let p5 = AdbPacket {
-                command: A_PARE,
-                arg0: PARE_MSG_TYPE_5,
-                arg1: 0,
-                payload: pub_key_bytes,
+            // Verifikasi HMAC server berdasarkan payload 32-byte yang kita kirim tadi
+            let expected_server_conf = compute_conf_hmac(&pairing_key, msg1_payload_to_send)?;
+            if expected_server_conf != msg4_payload {
+                return Err(anyhow::anyhow!("SPAKE2 Confirmation mismatch! Possible wrong pairing code."));
+            }
+
+            // --- TAHAP MSG5: PeerInfo (Wrapped Public Key) ---
+            info!("Step 5/5: Sending PeerInfo (Protobuf)");
+            
+            let pub_key_der = cert.public_key()?.public_key_to_der()?;
+            let peer_info = PeerInfo {
+                name: "Stellar".to_string(),
+                public_key: pub_key_der,
+                type_: 1, // ADB_RSA_PUB_KEY (0x01)
             };
-            ssl_stream.write_all(&p5.serialize()).await?;
+            
+            let mut peer_info_bin = Vec::new();
+            peer_info.encode(&mut peer_info_bin)?;
 
-            // Berikan jeda sangat singkat agar adbd selesai memproses MSG5 sebelum socket ditutup
-            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+            write_message(&mut ssl_stream, MSG_TYPE_PEER_INFO, &peer_info_bin).await?;
+
+            // Jeda agar adbd sempat memproses MSG5 sebelum socket ditutup
+            tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 
             info!("Pairing complete. Android dialog should close now.");
             Ok(format!("Pairing sukses! 'Stellar' sekarang terdaftar di perangkat."))
@@ -248,7 +338,5 @@ pub async fn init_pairing(port: u16, pairing_code: String) -> anyhow::Result<Str
 }
 
 pub async fn execute_adb_command(command: String) -> anyhow::Result<String> {
-    // Setelah pairing sukses, koneksi berikutnya dilakukan ke port 'Wireless Debugging' 
-    // yang berbeda menggunakan sertifikat yang sudah di-exchange.
     Ok(format!("Output dari: {}", command))
 }
