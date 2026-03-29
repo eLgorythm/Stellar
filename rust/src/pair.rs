@@ -137,7 +137,47 @@ async fn read_message<R: AsyncReadExt + Unpin>(reader: &mut R) -> anyhow::Result
     Ok((msg_type, payload))
 }
 
-async fn read_confirmation_message<R: AsyncBufReadExt + Unpin>(reader: &mut R) -> anyhow::Result<Vec<u8>> {
+/// Helper untuk membaca payload yang mungkin memiliki prefix panjang 2-byte BE atau 4-byte LE.
+async fn read_adp_payload<R: AsyncReadExt + Unpin>(reader: &mut R) -> anyhow::Result<Vec<u8>> {
+    // Intip 2 byte pertama
+    let mut prefix2 = [0u8; 2];
+    reader.read_exact(&mut prefix2).await?;
+
+    // Cek apakah ini 2-byte Big Endian length (0x0020 atau 0x0021)
+    if prefix2 == [0x00, 0x20] || prefix2 == [0x00, 0x21] {
+        let len = u16::from_be_bytes(prefix2) as usize;
+        let mut payload = vec![0u8; len];
+        reader.read_exact(&mut payload).await?;
+        debug!("Detected 2-byte BE length prefix: {}, read payload", len);
+        return Ok(payload);
+    }
+
+    // Jika bukan, mungkin ini 4-byte Little Endian length atau raw data.
+    // Kita baca 2 byte lagi untuk melengkapi 4 byte.
+    let mut suffix2 = [0u8; 2];
+    reader.read_exact(&mut suffix2).await?;
+    
+    let len_le = u32::from_le_bytes([prefix2[0], prefix2[1], suffix2[0], suffix2[1]]);
+    
+    if len_le == 32 || len_le == 33 {
+        let mut payload = vec![0u8; len_le as usize];
+        reader.read_exact(&mut payload).await?;
+        debug!("Detected 4-byte LE length prefix: {}, read payload", len_le);
+        Ok(payload)
+    } else {
+        // Asumsi ini adalah raw data tanpa prefix, 4 byte tadi adalah bagian dari payload.
+        let mut payload = vec![0u8; 32];
+        payload[0..2].copy_from_slice(&prefix2);
+        payload[2..4].copy_from_slice(&suffix2);
+        reader.read_exact(&mut payload[4..]).await?;
+        debug!("No length prefix detected, treated as raw 32-byte payload");
+        Ok(payload)
+    }
+}
+
+/// Reads a SPAKE2 Exchange message in a hybrid Android ADB pairing format.
+/// First it tries to detect [len: u32 LE] if present, otherwise it falls back to raw 32/33-byte payload.
+async fn read_confirmation_message<R: AsyncReadExt + Unpin>(reader: &mut R) -> anyhow::Result<Vec<u8>> {
     let msg_type = reader.read_u32_le().await?;
     debug!("Read message header for SPAKE2 Confirmation: Type={}", msg_type);
 
@@ -145,48 +185,10 @@ async fn read_confirmation_message<R: AsyncBufReadExt + Unpin>(reader: &mut R) -
         return Err(anyhow::anyhow!("Unexpected message type for SPAKE2 Confirmation: {}. Expected MSG_TYPE_CONFIRMATION (2).", msg_type));
     }
 
-    let available = reader.fill_buf().await?;
-    if available.len() >= 4 {
-        let possible_len = u32::from_le_bytes([available[0], available[1], available[2], available[3]]);
-        if possible_len == 32 || possible_len == 33 {
-            if available.len() >= 4 + possible_len as usize {
-                let payload = available[4..4 + possible_len as usize].to_vec();
-                reader.consume(4 + possible_len as usize);
-                debug!("Detected length-prefixed SPAKE2 Confirmation payload: {} bytes, Payload={}", possible_len, hex::encode(&payload));
-                return Ok(payload);
-            }
-
-            reader.consume(4);
-            let mut payload = vec![0u8; possible_len as usize];
-            reader.read_exact(&mut payload).await?;
-            debug!("Read length-prefixed SPAKE2 Confirmation payload by exact read: {} bytes, Payload={}", possible_len, hex::encode(&payload));
-            return Ok(payload);
-        }
-    }
-
-    if available.len() >= 33 {
-        let payload = available[..33].to_vec();
-        reader.consume(33);
-        debug!("Detected raw SPAKE2 Confirmation payload: 33 bytes, Payload={}", hex::encode(&payload));
-        return Ok(payload);
-    }
-
-    if available.len() >= 32 {
-        let payload = available[..32].to_vec();
-        reader.consume(32);
-        debug!("Detected raw SPAKE2 Confirmation payload: 32 bytes, Payload={}", hex::encode(&payload));
-        return Ok(payload);
-    }
-
-    let mut payload = vec![0u8; 32];
-    reader.read_exact(&mut payload).await?;
-    debug!("Read raw SPAKE2 Confirmation payload by exact read: 32 bytes, Payload={}", hex::encode(&payload));
-    Ok(payload)
+    read_adp_payload(reader).await
 }
 
-/// Reads a SPAKE2 Exchange message in a hybrid Android ADB pairing format.
-/// First it tries to detect [len: u32 LE] if present, otherwise it falls back to raw 32/33-byte payload.
-async fn read_spake2_exchange_message<R: AsyncBufReadExt + Unpin>(reader: &mut R) -> anyhow::Result<(u32, Vec<u8>)> {
+async fn read_spake2_exchange_message<R: AsyncReadExt + Unpin>(reader: &mut R) -> anyhow::Result<(u32, Vec<u8>)> {
     let msg_type = reader.read_u32_le().await?;
     debug!("Read message header for SPAKE2 Exchange: Type={}", msg_type);
 
@@ -194,45 +196,7 @@ async fn read_spake2_exchange_message<R: AsyncBufReadExt + Unpin>(reader: &mut R
         return Err(anyhow::anyhow!("Unexpected message type for SPAKE2 Exchange: {}. Expected MSG_TYPE_EXCHANGE (1).", msg_type));
     }
 
-    let available = reader.fill_buf().await?;
-    if available.len() >= 4 {
-        let possible_len = u32::from_le_bytes([available[0], available[1], available[2], available[3]]);
-        if possible_len == 32 || possible_len == 33 {
-            if available.len() >= 4 + possible_len as usize {
-                let payload = available[4..4 + possible_len as usize].to_vec();
-                reader.consume(4 + possible_len as usize);
-                debug!("Detected length-prefixed SPAKE2 Exchange payload: {} bytes, Payload={}", possible_len, hex::encode(&payload));
-                return Ok((msg_type, payload));
-            }
-
-            reader.consume(4);
-            let mut payload = vec![0u8; possible_len as usize];
-            reader.read_exact(&mut payload).await?;
-            debug!("Read length-prefixed SPAKE2 Exchange payload by exact read: {} bytes, Payload={}", possible_len, hex::encode(&payload));
-            return Ok((msg_type, payload));
-        }
-    }
-
-    if available.len() >= 33 {
-        let first = available[0];
-        if first == b'A' || first == b'B' || first == b'S' || first == 0 || first == 1 {
-            let payload = available[..33].to_vec();
-            reader.consume(33);
-            debug!("Detected raw SPAKE2 Exchange payload: 33 bytes (prefix present={}), Payload={}", first, hex::encode(&payload));
-            return Ok((msg_type, payload));
-        }
-    }
-
-    if available.len() >= 32 {
-        let payload = available[..32].to_vec();
-        reader.consume(32);
-        debug!("Detected raw SPAKE2 Exchange payload: 32 bytes, Payload={}", hex::encode(&payload));
-        return Ok((msg_type, payload));
-    }
-
-    let mut payload = vec![0u8; 32];
-    reader.read_exact(&mut payload).await?;
-    debug!("Read raw SPAKE2 Exchange payload by exact read: 32 bytes, Payload={}", hex::encode(&payload));
+    let payload = read_adp_payload(reader).await?;
     Ok((msg_type, payload))
 }
 
