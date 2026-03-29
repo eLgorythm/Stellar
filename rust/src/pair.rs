@@ -98,7 +98,11 @@ async fn write_spake2_exchange_message<W: AsyncWriteExt + Unpin>(writer: &mut W,
 async fn write_confirmation_message<W: AsyncWriteExt + Unpin>(writer: &mut W, payload: &[u8]) -> anyhow::Result<()> {
     debug!("Preparing to send SPAKE2 Confirmation message: Type={}, Len={}, Payload={}", MSG_TYPE_CONFIRMATION, payload.len(), hex::encode(payload));
     writer.write_u32_le(MSG_TYPE_CONFIRMATION).await?;
+    debug!("write_confirmation_message: wrote MSG_TYPE_CONFIRMATION");
+    writer.write_u32_le(payload.len() as u32).await?;
+    debug!("write_confirmation_message: wrote payload length {}", payload.len());
     writer.write_all(payload).await?;
+    debug!("write_confirmation_message: wrote payload bytes");
     writer.flush().await?;
     debug!("Sent SPAKE2 Confirmation message: Type={}, Len={}, Payload={}", MSG_TYPE_CONFIRMATION, payload.len(), hex::encode(payload));
     Ok(())
@@ -212,10 +216,10 @@ async fn read_spake2_exchange_message<R: AsyncBufReadExt + Unpin>(reader: &mut R
 
     if available.len() >= 33 {
         let first = available[0];
-        if first == b'A' || first == b'B' || first == b'S' {
+        if first == b'A' || first == b'B' || first == b'S' || first == 0 || first == 1 {
             let payload = available[..33].to_vec();
             reader.consume(33);
-            debug!("Detected raw SPAKE2 Exchange payload: 33 bytes (prefix present), Payload={}", hex::encode(&payload));
+            debug!("Detected raw SPAKE2 Exchange payload: 33 bytes (prefix present={}), Payload={}", first, hex::encode(&payload));
             return Ok((msg_type, payload));
         }
     }
