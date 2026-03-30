@@ -13,6 +13,7 @@ use log::{info, debug, warn, error};
 use std::sync::RwLock;
 use crate::frb_generated::*;
 use prost::Message;
+use ring::aead::{self, LessSafeKey, UnboundKey};
 
 #[allow(dead_code)]
 const MAX_PAYLOAD: u32 = 4 * 1024 * 1024; // 4MB
@@ -45,15 +46,15 @@ fn strip_leading_length_prefix(payload: &[u8]) -> Option<&[u8]> {
     }
 
     let len_be = u32::from_be_bytes(payload[0..4].try_into().unwrap()) as usize;
-    if len_be == payload.len() - 4 {
-        debug!("Detected big-endian 4-byte length prefix in PeerInfo payload: {}", len_be);
-        return Some(&payload[4..]);
+    if len_be > 0 && len_be <= payload.len() - 4 {
+        debug!("Detected big-endian length prefix: {}, slicing payload", len_be);
+        return Some(&payload[4..4 + len_be]);
     }
 
     let len_le = u32::from_le_bytes(payload[0..4].try_into().unwrap()) as usize;
-    if len_le == payload.len() - 4 {
-        debug!("Detected little-endian 4-byte length prefix in PeerInfo payload: {}", len_le);
-        return Some(&payload[4..]);
+    if len_le > 0 && len_le <= payload.len() - 4 {
+        debug!("Detected little-endian length prefix: {}, slicing payload", len_le);
+        return Some(&payload[4..4 + len_le]);
     }
 
     None
@@ -87,6 +88,40 @@ fn decode_peer_info_payload(payload: &[u8]) -> anyhow::Result<PeerInfo> {
     }
 
     Err(anyhow::anyhow!("Failed to decode PeerInfo: {}", first_err))
+}
+
+/// Dekripsi payload menggunakan AES-256-GCM (Kunci Ks untuk Server -> Client)
+fn decrypt_payload(key: &[u8], ciphertext: &[u8]) -> anyhow::Result<Vec<u8>> {
+    if ciphertext.len() < 16 {
+        return Err(anyhow::anyhow!("Ciphertext too short for GCM"));
+    }
+    // Nonce awal untuk pesan terenkripsi pertama adalah 12 byte nol
+    let nonce_bytes = [0u8; 12];
+    let nonce = aead::Nonce::assume_unique_for_key(nonce_bytes);
+    let unbound_key = UnboundKey::new(&aead::AES_256_GCM, key)
+        .map_err(|_| anyhow::anyhow!("Failed to create AEAD key"))?;
+    let aead_key = LessSafeKey::new(unbound_key);
+
+    let mut in_out = ciphertext.to_vec();
+    let decrypted = aead_key.open_in_place(nonce, aead::Aad::empty(), &mut in_out)
+        .map_err(|_| anyhow::anyhow!("AES-GCM decryption failed - check keys"))?;
+
+    Ok(decrypted.to_vec())
+}
+
+/// Enkripsi payload menggunakan AES-256-GCM (Kunci Kc untuk Client -> Server)
+fn encrypt_payload(key: &[u8], plaintext: &[u8]) -> anyhow::Result<Vec<u8>> {
+    let nonce_bytes = [0u8; 12];
+    let nonce = aead::Nonce::assume_unique_for_key(nonce_bytes);
+    let unbound_key = UnboundKey::new(&aead::AES_256_GCM, key)
+        .map_err(|_| anyhow::anyhow!("Failed to create AEAD key"))?;
+    let aead_key = LessSafeKey::new(unbound_key);
+
+    let mut in_out = plaintext.to_vec();
+    aead_key.seal_in_place_append_tag(nonce, aead::Aad::empty(), &mut in_out)
+        .map_err(|_| anyhow::anyhow!("AES-GCM encryption failed"))?;
+
+    Ok(in_out)
 }
 
 static LOG_SINK: RwLock<Option<StreamSink<String>>> = RwLock::new(None);
@@ -124,8 +159,6 @@ fn debug_shared_secret(shared_secret: &[u8]) {
 }
 
 fn derive_keys(shared_secret: &[u8]) -> anyhow::Result<([u8; 32], [u8; 32])> {
-    use ring::hkdf;
-
     debug!("Deriving keys: shared_secret_len={} bytes", shared_secret.len());
 
     // Helper struct agar ring mengizinkan ekstraksi lebih dari 32 byte.
@@ -139,8 +172,8 @@ fn derive_keys(shared_secret: &[u8]) -> anyhow::Result<([u8; 32], [u8; 32])> {
     let salt = hkdf::Salt::new(hkdf::HKDF_SHA256, &[]);
     let prk = salt.extract(shared_secret);
 
-    // Info string TANPA null terminator
-    let info = b"adb pairing auth";
+    // Info string HARUS menyertakan null terminator sesuai standar AOSP (sizeof kHkdfInfo)
+    let info = b"adb pairing auth\0";
     let info_slices: &[&[u8]] = &[info];
 
     let okm_generator = prk.expand(info_slices, HkdfOutput(64))
@@ -285,6 +318,7 @@ pub fn init_logger(sink: StreamSink<String>) {
 }
 
 pub async fn init_pairing(port: u16, pairing_code: String) -> anyhow::Result<String> {
+    let pairing_code = pairing_code.trim();
     info!("init_pairing dimulai: port={}, code={}", port, pairing_code);
 
     // 1. Generate sertifikat untuk identitas Stellar
@@ -313,21 +347,19 @@ pub async fn init_pairing(port: u16, pairing_code: String) -> anyhow::Result<Str
 
             // --- TAHAP SPAKE2 ---
             // Identitas HARUS sesuai standar AOSP pairing_connection.cpp
-            // Menghapus \0 karena BoringSSL biasanya menggunakan panjang string tanpa null
+            // Menambahkan \0 karena AOSP menggunakan sizeof() yang menyertakan null terminator
             let (state, msg1_data) = Spake2::<Ed25519Group>::start_a(
                 &Password::new(pairing_code.as_bytes()),
-                &Identity::new(b"adb pair client"),
-                &Identity::new(b"adb pair server"),
+                &Identity::new(b"adb pair client\0"),
+                &Identity::new(b"adb pair server\0"),
             );
 
-            // The spake2 crate's Ed25519Group produces 33 bytes: [prefix, point_bytes...]
-            // However, the ADB protocol expects exactly 32 bytes (the raw point).
-            // We must strip the prefix (usually 0x00 for Side A) before sending.
-            let (my_prefix, msg1_payload_to_send) = if msg1_data.len() == 33 {
-                (msg1_data[0], &msg1_data[1..])
-            } else {
-                return Err(anyhow::anyhow!("Unexpected MSG1 size from spake2: {}", msg1_data.len()));
-            };
+            // Crate spake2 menghasilkan 33 bytes: [prefix (1 byte), point (32 bytes)]
+            // Protokol ADB mengharapkan tepat 32 bytes (raw point).
+            let (my_prefix, msg1_payload_to_send) = (msg1_data[0], &msg1_data[1..]);
+            if msg1_data.len() != 33 {
+                return Err(anyhow::anyhow!("Unexpected MSG1 size from spake2: expected 33, got {}", msg1_data.len()));
+            }
             debug!("MSG1 prefix = {}, payload size = {}", my_prefix, msg1_payload_to_send.len());
             debug!("MSG1 payload to send: {}", hex::encode(msg1_payload_to_send));
 
@@ -358,14 +390,14 @@ pub async fn init_pairing(port: u16, pairing_code: String) -> anyhow::Result<Str
                 other => return Err(anyhow::anyhow!("Unexpected SPAKE2 prefix byte: {}", other)),
             };
 
-            let msg2_spake_for_finish = if msg2_payload.len() == 33 && (msg2_payload[0] == b'A' || msg2_payload[0] == b'B' || msg2_payload[0] == b'S') {
+            let msg2_spake_for_finish = if msg2_payload.len() == 33 && (msg2_payload[0] == b'A' || msg2_payload[0] == b'B' || msg2_payload[0] == b'S' || msg2_payload[0] <= 1) {
                 debug!("Received MSG2 with explicit SPAKE2 prefix: {}", msg2_payload[0]);
                 msg2_payload.clone()
             } else if msg2_payload.len() == 32 {
                 let mut buf = Vec::with_capacity(33);
                 buf.push(peer_prefix);
                 buf.extend_from_slice(&msg2_payload);
-                debug!("Processing MSG2 by prepending peer prefix: {}", peer_prefix);
+                debug!("Prepend peer prefix {} to MSG2 payload", peer_prefix);
                 buf
             } else {
                 return Err(anyhow::anyhow!("Unexpected SPAKE2 MSG2 payload length: {}", msg2_payload.len()));
@@ -373,7 +405,7 @@ pub async fn init_pairing(port: u16, pairing_code: String) -> anyhow::Result<Str
 
             let shared_secret = state.finish(&msg2_spake_for_finish)
                 .map_err(|e| anyhow::anyhow!("SPAKE2 finish error: {:?}", e))?;
-            
+
             debug!("SPAKE2 shared secret generated, length: {}", shared_secret.len());
             debug_shared_secret(&shared_secret);
             
@@ -382,8 +414,8 @@ pub async fn init_pairing(port: u16, pairing_code: String) -> anyhow::Result<Str
             // Konstruksi Payload HMAC (MSG1 || MSG2)
             // Android menggabungkan (concatenate) pertukaran pesan sebelumnya untuk validasi
             let mut hmac_input = Vec::with_capacity(64);
-            hmac_input.extend_from_slice(msg1_payload_to_send); // MSG1 data (32 bytes)
-            hmac_input.extend_from_slice(&msg2_payload);       // MSG2 data (32 bytes)
+            hmac_input.extend_from_slice(msg1_payload_to_send); // 32 bytes
+            hmac_input.extend_from_slice(&msg2_payload);       // 32 bytes
             
             // MSG3: Kirim HMAC konfirmasi client
             let msg3_data = compute_conf_hmac(&kc, &hmac_input)?;
@@ -422,9 +454,27 @@ pub async fn init_pairing(port: u16, pairing_code: String) -> anyhow::Result<Str
                     return Err(anyhow::anyhow!("Unexpected packet type after client confirmation: {}", other));
                 }
             };
-            debug!("Received server PeerInfo payload: {} bytes", server_peer_info_payload.len());
 
-            let server_peer_info = match decode_peer_info_payload(&server_peer_info_payload) {
+            // Logika Dekripsi dengan penanganan padding TLP
+            // adbd sering mengirimkan buffer 8192 byte + 16 byte tag = 8208.
+            let decrypted_server_payload = match decrypt_payload(&ks, &server_peer_info_payload) {
+                Ok(data) => data,
+                Err(e) => {
+                    // Jika gagal, coba potong payload tepat ke 8208 jika server mengirim lebih
+                    if server_peer_info_payload.len() > 8208 {
+                        debug!("Payload too long ({}), truncating to 8208 for retry", server_peer_info_payload.len());
+                        decrypt_payload(&ks, &server_peer_info_payload[..8208])
+                            .map_err(|_| anyhow::anyhow!("AES-GCM decryption failed after truncation: {}", e))?
+                    } else {
+                        debug!("Decryption with Ks failed ({}), trying Kc as fallback...", e);
+                        decrypt_payload(&kc, &server_peer_info_payload)
+                            .map_err(|_| anyhow::anyhow!("AES-GCM decryption failed with both keys. Shared secret or HKDF info mismatch."))?
+                    }
+                }
+            };
+            debug!("Decrypted server PeerInfo successfully, len: {}", decrypted_server_payload.len());
+
+            let server_peer_info = match decode_peer_info_payload(&decrypted_server_payload) {
                 Ok(info) => {
                     info!("Received server PeerInfo: name={}, type={}, public_key_len={}",
                         info.name,
@@ -451,7 +501,9 @@ pub async fn init_pairing(port: u16, pairing_code: String) -> anyhow::Result<Str
             let mut peer_info_bin = Vec::new();
             peer_info.encode(&mut peer_info_bin)?;
 
-            write_message(&mut ssl_stream, MSG_TYPE_PEER_INFO, &peer_info_bin).await?;
+            // Enkripsi PeerInfo client sebelum dikirim menggunakan kunci Kc
+            let encrypted_client_payload = encrypt_payload(&kc, &peer_info_bin)?;
+            write_message(&mut ssl_stream, MSG_TYPE_PEER_INFO, &encrypted_client_payload).await?;
 
             // Jeda agar adbd sempat memproses MSG5 sebelum socket ditutup
             tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;

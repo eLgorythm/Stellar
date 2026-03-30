@@ -1,45 +1,60 @@
 --------- beginning of main
-03-30 22:29:44.500 32703 32703 I flutter : [22:29:44] [RUST:INFO] Connecting to 127.0.0.1:35289
-03-30 22:29:44.503 32703 32703 I flutter : [22:29:44] [RUST:INFO] Starting TLS Handshake...
-03-30 22:29:44.523 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] MSG1 prefix = 65, payload size = 32
-03-30 22:29:44.524 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] MSG1 payload to send: e58c8352f0949d57d4c8c2be4498a8950964918d85224eb48436a1e45f227856
-03-30 22:29:44.527 32703 32703 I flutter : [22:29:44] [RUST:INFO] Step 1/5: Sending SPAKE2 Exchange (Client)
-03-30 22:29:44.530 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] Sending SPAKE2 Exchange: Type=0, Len=32
-03-30 22:29:44.533 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] Sent AOSP PairingPacket: Type=0, Len=32
-03-30 22:29:44.536 32703 32703 I flutter : [22:29:44] [RUST:INFO] Step 2/5: Waiting for SPAKE2 Exchange (Server)
-03-30 22:29:44.538 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] TLP header byte[0] = 0x01
-03-30 22:29:44.542 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] TLP header byte[1] = 0x00
-03-30 22:29:44.543 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] TLP header byte[2] = 0x00
-03-30 22:29:44.544 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] TLP header byte[3] = 0x00
-03-30 22:29:44.553 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] TLP header byte[4] = 0x00
-03-30 22:29:44.554 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] TLP header byte[5] = 0x20
-03-30 22:29:44.556 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] Full TLP header: 010000000020
-03-30 22:29:44.557 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] Received AOSP PairingPacket: Type=0, Len=32
-03-30 22:29:44.563 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] Received MSG2 payload length: 32
-03-30 22:29:44.564 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] MSG2 payload raw: 2cd36018c3baadcbe68ed2b432216c7489d98931c6befe5bad35a7646b0c2c3d
-03-30 22:29:44.566 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] Processing MSG2 by prepending peer prefix: 66
-03-30 22:29:44.567 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] SPAKE2 shared secret generated, length: 32
-03-30 22:29:44.571 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] Shared secret: 0b6ff750ef7c12003a5f21fea87b55375192495fa38669ec31b2e17a859d85ef
-03-30 22:29:44.572 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] Deriving keys: shared_secret_len=32 bytes
-03-30 22:29:44.573 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] Kc: 48be046f0ae0c9a2bb3ee67f8ed9b7c504bbb505deb072583fdb850f94d8fce9
-03-30 22:29:44.575 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] Ks: 9f75709324ccdc4491d8b7ce3b5ea2cd742f86e9d103067239b5f176e26099cf
-03-30 22:29:44.603 32703 32703 I flutter : [22:29:44] [RUST:INFO] Step 3/6: Sending HMAC Confirmation (Client)
-03-30 22:29:44.606 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] Computed MSG3 confirmation HMAC: d4223631a2495379523032a446bd13b0aabe96f7f21f9cf5d1473d6275a62be3
-03-30 22:29:44.608 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] Sending SPAKE2 Confirmation message: Type=0, Len=32
-03-30 22:29:44.610 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] Sent AOSP PairingPacket: Type=0, Len=32
-03-30 22:29:44.612 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] MSG3 sent successfully
-03-30 22:29:44.614 32703 32703 I flutter : [22:29:44] [RUST:INFO] Step 4/6: Waiting for server response
-03-30 22:29:44.617 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] TLP header byte[0] = 0x01
-03-30 22:29:44.619 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] TLP header byte[1] = 0x01
-03-30 22:29:44.621 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] TLP header byte[2] = 0x00
-03-30 22:29:44.625 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] TLP header byte[3] = 0x00
-03-30 22:29:44.629 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] TLP header byte[4] = 0x20
-03-30 22:29:44.631 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] TLP header byte[5] = 0x10
-03-30 22:29:44.633 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] Full TLP header: 010100002010
-03-30 22:29:44.635 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] Received AOSP PairingPacket: Type=1, Len=8208
-03-30 22:29:44.638 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] Received PeerInfo directly after client confirmation
-03-30 22:29:44.639 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] Received server PeerInfo payload: 8208 bytes
-03-30 22:29:44.641 32703 32703 I flutter : [22:29:44] [RUST:DEBUG] Server PeerInfo payload prefix: eaf97f4e9a462ac22cf0619bed840c8c
-03-30 22:29:44.643 32703 32703 I flutter : [22:29:44] [RUST:WARN] Failed to decode server PeerInfo, continuing anyway: Failed to decode PeerInfo: failed to decode Protobuf message: invalid key value: 2193171814012
+03-31 01:22:28.111 28515  2270 I flutter : [IMPORTANT:flutter/shell/platform/android/android_context_vk_impeller.cc(62)] Using the Impeller rendering backend (Vulkan).
+03-31 01:22:28.176 28515  2299 I flutter : The Dart VM service is listening on http://127.0.0.1:38569/sn638iHjBJY=/
+03-31 01:22:30.013 28515 28515 I flutter : [01:22:30] [RUST:INFO] Rust logger initialized via StreamSink
+03-31 01:22:30.017 28515 28515 I flutter : [01:22:30] [RUST:INFO] Bridge: Aliran log telah tersambung ke Dart.
+03-31 01:22:32.471 28515 28515 I flutter : [01:22:32] DART: Memulai mDNS discovery untuk _adb-tls-pairing._tcp
+03-31 01:22:37.080 28515 28515 I flutter : [01:22:37] DART: Layanan ditemukan: adb-7pgqlndalbscukg6-617mqw pada port 35005
+03-31 01:22:37.172 28515 28515 I flutter : [01:22:37] DART: Discovery selesai. Port 35005 siap. Menunggu input user...
+03-31 01:22:43.554 28515  2852 I flutter : [IMPORTANT:flutter/shell/platform/android/android_context_vk_impeller.cc(62)] Using the Impeller rendering backend (Vulkan).
+03-31 01:22:44.511 28515 28515 I flutter : DART BG: lookup isolate...
+03-31 01:22:44.515 28515 28515 I flutter : DART BG: payload = 35005
+03-31 01:22:44.517 28515 28515 I flutter : DART BG: input = 185448
+03-31 01:22:44.518 28515 28515 I flutter : DART BG: sendPort = SendPort
+03-31 01:22:44.519 28515 28515 I flutter : DART: Background Isolate mengirim data ke Main Isolate...
+03-31 01:22:44.541 28515 28515 I flutter : [01:22:44] DART: Memanggil Rust init_pairing(port: 35005, code: 185448)
+03-31 01:22:44.553 28515 28515 I flutter : [01:22:44] [RUST:INFO] init_pairing dimulai: port=35005, code=185448
+03-31 01:22:44.556 28515 28515 I flutter : [01:22:44] [RUST:DEBUG] Generating RSA 2048 keys and X509 certificate...
+03-31 01:22:45.216 28515 28515 I flutter : [01:22:45] [RUST:INFO] Generated self-signed certificate and private key
+03-31 01:22:45.217 28515 28515 I flutter : [01:22:45] [RUST:INFO] Connecting to 127.0.0.1:35005
+03-31 01:22:45.224 28515 28515 I flutter : [01:22:45] [RUST:INFO] Starting TLS Handshake...
+03-31 01:22:45.244 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] MSG1 prefix = 65, payload size = 32
+03-31 01:22:45.245 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] MSG1 payload to send: 6697d2cd4a33e2ca7779b1d9471daefbd63b2ea4273639a43f96a17a7ad00838
+03-31 01:22:45.247 28515 28515 I flutter : [01:22:45] [RUST:INFO] Step 1/5: Sending SPAKE2 Exchange (Client)
+03-31 01:22:45.248 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Sending SPAKE2 Exchange: Type=0, Len=32
+03-31 01:22:45.250 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Sent AOSP PairingPacket: Type=0, Len=32
+03-31 01:22:45.251 28515 28515 I flutter : [01:22:45] [RUST:INFO] Step 2/5: Waiting for SPAKE2 Exchange (Server)
+03-31 01:22:45.252 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] TLP header byte[0] = 0x01
+03-31 01:22:45.253 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] TLP header byte[1] = 0x00
+03-31 01:22:45.254 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] TLP header byte[2] = 0x00
+03-31 01:22:45.256 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] TLP header byte[3] = 0x00
+03-31 01:22:45.257 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] TLP header byte[4] = 0x00
+03-31 01:22:45.258 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] TLP header byte[5] = 0x20
+03-31 01:22:45.259 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Full TLP header: 010000000020
+03-31 01:22:45.261 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Received AOSP PairingPacket: Type=0, Len=32
+03-31 01:22:45.262 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Received MSG2 payload length: 32
+03-31 01:22:45.263 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] MSG2 payload raw: b37b521d24b6a4be5075835d84b453faeb46438fe482eab3e592f4b3651195ad
+03-31 01:22:45.264 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Prepend peer prefix 66 to MSG2 payload
+03-31 01:22:45.265 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] SPAKE2 shared secret generated, length: 32
+03-31 01:22:45.267 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Shared secret: 708963140fc2a8a615744cbb5f801258cdc0741b9c4c626f47ba09af2bc81887
+03-31 01:22:45.268 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Deriving keys: shared_secret_len=32 bytes
+03-31 01:22:45.269 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Kc: 13da46dfcd79ab441150e3b0c1daa3d7f7cbea3671ff984fd172cec87d8a25b8
+03-31 01:22:45.271 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Ks: c61eecdd10f67979af46fb53b58a1da924dee07a6a52ba5c7dc5b95254504922
+03-31 01:22:45.272 28515 28515 I flutter : [01:22:45] [RUST:INFO] Step 3/6: Sending HMAC Confirmation (Client)
+03-31 01:22:45.273 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Computed MSG3 confirmation HMAC: eadf49c660ec68bd2722886fb74317873906737f73249222f7671519fff8949e
+03-31 01:22:45.274 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Sending SPAKE2 Confirmation message: Type=0, Len=32
+03-31 01:22:45.274 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Sent AOSP PairingPacket: Type=0, Len=32
+03-31 01:22:45.276 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] MSG3 sent successfully
+03-31 01:22:45.277 28515 28515 I flutter : [01:22:45] [RUST:INFO] Step 4/6: Waiting for server response
+03-31 01:22:45.278 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] TLP header byte[0] = 0x01
+03-31 01:22:45.279 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] TLP header byte[1] = 0x01
+03-31 01:22:45.281 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] TLP header byte[2] = 0x00
+03-31 01:22:45.282 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] TLP header byte[3] = 0x00
+03-31 01:22:45.283 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] TLP header byte[4] = 0x20
+03-31 01:22:45.284 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] TLP header byte[5] = 0x10
+03-31 01:22:45.285 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Full TLP header: 010100002010
+03-31 01:22:45.286 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Received AOSP PairingPacket: Type=1, Len=8208
+03-31 01:22:45.287 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Received PeerInfo directly after client confirmation
+03-31 01:22:45.289 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Decryption with Ks failed (AES-GCM decryption failed - check keys), trying Kc as fallback...
 
-Error: AnyhowException(Server confirmation HMAC mismatch)
+Error: AnyhowException(AES-GCM decryption failed with both keys. Shared secret or HKDF info mismatch.)
