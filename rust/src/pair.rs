@@ -7,9 +7,9 @@ use boring::x509::{X509, X509Name};
 use ring::{hkdf, hmac};
 use spake2::{Ed25519Group, Identity, Password, Spake2};
 use std::net::SocketAddr;
-use tokio::io::{AsyncReadExt, AsyncBufRead, AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
-use log::{info, debug, error};
+use log::{info, debug, warn, error};
 use std::sync::RwLock;
 use crate::frb_generated::*;
 use prost::Message;
@@ -17,10 +17,16 @@ use prost::Message;
 #[allow(dead_code)]
 const MAX_PAYLOAD: u32 = 4 * 1024 * 1024; // 4MB
 
-/// Message types sesuai PairingConnection.h AOSP
-const MSG_TYPE_EXCHANGE: u32 = 1;      // SPAKE2 Exchange
-const MSG_TYPE_CONFIRMATION: u32 = 2;   // SPAKE2 Confirmation (HMAC)
-const MSG_TYPE_PEER_INFO: u32 = 3;      // Protobuf PeerInfo
+/// Message types sesuai AOSP pairing packet header
+const MSG_TYPE_EXCHANGE: u32 = 0;      // SPAKE2 Exchange / SPAKE2_MSG
+const MSG_TYPE_PEER_INFO: u32 = 1;      // PeerInfo
+
+/// AOSP ADB RSA public key type enum.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ::prost::Enumeration)]
+pub enum AdbRsaPubKey {
+    Unknown = 0,
+    AdbRsaPubKey = 1,
+}
 
 /// Protobuf structure untuk PeerInfo sesuai adb_pairing.proto
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -29,8 +35,58 @@ pub struct PeerInfo {
     pub name: ::prost::alloc::string::String,
     #[prost(bytes = "vec", tag = "2")]
     pub public_key: ::prost::alloc::vec::Vec<u8>,
-    #[prost(int32, tag = "3")]
+    #[prost(enumeration = "AdbRsaPubKey", tag = "3")]
     pub type_: i32,
+}
+
+fn strip_leading_length_prefix(payload: &[u8]) -> Option<&[u8]> {
+    if payload.len() < 4 {
+        return None;
+    }
+
+    let len_be = u32::from_be_bytes(payload[0..4].try_into().unwrap()) as usize;
+    if len_be == payload.len() - 4 {
+        debug!("Detected big-endian 4-byte length prefix in PeerInfo payload: {}", len_be);
+        return Some(&payload[4..]);
+    }
+
+    let len_le = u32::from_le_bytes(payload[0..4].try_into().unwrap()) as usize;
+    if len_le == payload.len() - 4 {
+        debug!("Detected little-endian 4-byte length prefix in PeerInfo payload: {}", len_le);
+        return Some(&payload[4..]);
+    }
+
+    None
+}
+
+fn decode_peer_info_payload(payload: &[u8]) -> anyhow::Result<PeerInfo> {
+    let prefix_len = payload.len().min(16);
+    debug!("Server PeerInfo payload prefix: {}", hex::encode(&payload[..prefix_len]));
+
+    let first_err = match PeerInfo::decode(payload) {
+        Ok(peer_info) => return Ok(peer_info),
+        Err(err) => err,
+    };
+
+    if let Some(stripped) = strip_leading_length_prefix(payload) {
+        debug!("Retrying PeerInfo decode after stripping length prefix, stripped_len={}", stripped.len());
+        if let Ok(peer_info) = PeerInfo::decode(stripped) {
+            return Ok(peer_info);
+        }
+    }
+
+    let max_scan_offset = payload.len();
+    for offset in 1..max_scan_offset {
+        let b = payload[offset];
+        if matches!(b, 0x0A | 0x12 | 0x18 | 0x1A) {
+            if let Ok(peer_info) = PeerInfo::decode(&payload[offset..]) {
+                debug!("Found PeerInfo after skipping {} bytes", offset);
+                return Ok(peer_info);
+            }
+        }
+    }
+
+    Err(anyhow::anyhow!("Failed to decode PeerInfo: {}", first_err))
 }
 
 static LOG_SINK: RwLock<Option<StreamSink<String>>> = RwLock::new(None);
@@ -63,6 +119,10 @@ impl log::Log for FlutterLogger {
     fn flush(&self) {}
 }
 
+fn debug_shared_secret(shared_secret: &[u8]) {
+    debug!("Shared secret: {}", hex::encode(shared_secret));
+}
+
 fn derive_keys(shared_secret: &[u8]) -> anyhow::Result<([u8; 32], [u8; 32])> {
     use ring::hkdf;
 
@@ -75,26 +135,29 @@ fn derive_keys(shared_secret: &[u8]) -> anyhow::Result<([u8; 32], [u8; 32])> {
         fn len(&self) -> usize { self.0 }
     }
 
+    // Salt kosong sesuai standar ADB
     let salt = hkdf::Salt::new(hkdf::HKDF_SHA256, &[]);
     let prk = salt.extract(shared_secret);
-    
-    // Menggunakan null terminator
-    let info: &[&[u8]] = &[b"adb pairing auth"];
-    
-    // Minta 64 byte: 32 byte pertama untuk Kc (Client), 32 byte kedua untuk Ks (Server)
-    let okm_generator = prk.expand(info, HkdfOutput(64))
-        .map_err(|_| anyhow::anyhow!("HKDF expand failed: invalid info or secret"))?;
+
+    // Info string TANPA null terminator
+    let info = b"adb pairing auth";
+    let info_slices: &[&[u8]] = &[info];
+
+    let okm_generator = prk.expand(info_slices, HkdfOutput(64))
+        .map_err(|_| anyhow::anyhow!("HKDF expand failed"))?;
     
     let mut okm = [0u8; 64];
     okm_generator.fill(&mut okm)
-        .map_err(|_| anyhow::anyhow!("HKDF fill failed: could not generate 64 bytes"))?;
+        .map_err(|_| anyhow::anyhow!("HKDF fill failed"))?;
 
-    let mut kc = [0u8; 32]; // Client Key
-    let mut ks = [0u8; 32]; // Server Key
+    let mut kc = [0u8; 32];
+    let mut ks = [0u8; 32];
     kc.copy_from_slice(&okm[0..32]);
     ks.copy_from_slice(&okm[32..64]);
     
-    debug!("Keys derived: Kc={}..., Ks={}...", hex::encode(&kc[..4]), hex::encode(&ks[..4]));
+    // Log ini sangat penting untuk debug!
+    debug!("Kc: {}", hex::encode(&kc));
+    debug!("Ks: {}", hex::encode(&ks));
     
     Ok((kc, ks))
 }
@@ -106,6 +169,13 @@ fn compute_conf_hmac(key: &[u8], payload: &[u8]) -> anyhow::Result<Vec<u8>> {
     Ok(tag.as_ref().to_vec())
 }
 
+fn verify_conf_hmac(key: &[u8], payload: &[u8], tag: &[u8]) -> anyhow::Result<()> {
+    let s_key = hmac::Key::new(hmac::HMAC_SHA256, key);
+    hmac::verify(&s_key, payload, tag)
+        .map_err(|_| anyhow::anyhow!("Server confirmation HMAC mismatch"))?;
+    Ok(())
+}
+
 async fn write_spake2_exchange_message<W: AsyncWriteExt + Unpin>(writer: &mut W, msg_type: u32, payload: &[u8]) -> anyhow::Result<()> {
     debug!("Sending SPAKE2 Exchange: Type={}, Len={}", msg_type, payload.len());
     write_message(writer, msg_type, payload).await?;
@@ -113,40 +183,50 @@ async fn write_spake2_exchange_message<W: AsyncWriteExt + Unpin>(writer: &mut W,
 }
 
 async fn write_confirmation_message<W: AsyncWriteExt + Unpin>(writer: &mut W, payload: &[u8]) -> anyhow::Result<()> {
-    debug!("Sending SPAKE2 Confirmation message: Type={}, Len={}", MSG_TYPE_CONFIRMATION, payload.len());
-    write_message(writer, MSG_TYPE_CONFIRMATION, payload).await?;
+    debug!("Sending SPAKE2 Confirmation message: Type={}, Len={}", MSG_TYPE_EXCHANGE, payload.len());
+    write_message(writer, MSG_TYPE_EXCHANGE, payload).await?;
     Ok(())
 }
 
-/// Format TLP Standar ADB: [type: u32 LE][len: u32 LE][payload]
+/// Format AOSP PairingPacket: [version: u8][type: u8][payload_size: u32 BE][payload]
 async fn write_message<W: AsyncWriteExt + Unpin>(writer: &mut W, msg_type: u32, payload: &[u8]) -> anyhow::Result<()> {
-    // Kirim 4 byte prefix (Type di byte pertama sesuai TODO.md)
-    let mut prefix = [0u8; 4];
-    let type_bytes = msg_type.to_le_bytes();
-    prefix.copy_from_slice(&type_bytes);
-    writer.write_all(&prefix).await?;
+    let msg_type = u8::try_from(msg_type)
+        .map_err(|_| anyhow::anyhow!("Message type {} does not fit in a u8", msg_type))?;
 
-    // Kirim 2 byte Length (Big Endian)
-    writer.write_u16(payload.len() as u16).await?;
+    writer.write_u8(1).await?; // version
+    writer.write_u8(msg_type).await?;
+    writer.write_u32(payload.len() as u32).await?;
 
-    // Kirim Payload
     writer.write_all(payload).await?;
     writer.flush().await?;
     
-    debug!("Sent ADP Packet: Type={}, Len={}", msg_type, payload.len());
+    debug!("Sent AOSP PairingPacket: Type={}, Len={}", msg_type, payload.len());
     Ok(())
 }
 
-/// Membaca paket TLP ADB (ADP): [type: u32 LE][len: u16 BE][payload]
-/// Digunakan untuk membersihkan buffer secara total setiap pembacaan.
+async fn read_tlp_header<R: AsyncReadExt + Unpin>(reader: &mut R) -> anyhow::Result<[u8; 6]> {
+    let mut header = [0u8; 6]; // 1 byte version + 1 byte type + 4 byte payload length
+    for i in 0..header.len() {
+        reader.read_exact(&mut header[i..i + 1]).await?;
+        debug!("TLP header byte[{}] = 0x{:02x}", i, header[i]);
+    }
+    debug!("Full TLP header: {}", hex::encode(&header));
+    Ok(header)
+}
+
+/// Membaca paket AOSP PairingPacket: [version: u8][type: u8][payload_size: u32 BE][payload]
 async fn read_tlp_packet<R: AsyncReadExt + Unpin>(reader: &mut R) -> anyhow::Result<(u32, Vec<u8>)> {
-    let mut header = [0u8; 6]; // 4 byte Type + 2 byte Length
-    reader.read_exact(&mut header).await?;
+    let header = read_tlp_header(reader).await?;
 
-    let msg_type = u32::from_le_bytes([header[0], header[1], header[2], header[3]]);
-    let len = u16::from_be_bytes([header[4], header[5]]) as usize;
+    let version = header[0];
+    if version != 1 {
+        return Err(anyhow::anyhow!("Unsupported PairingPacket version: {}", version));
+    }
 
-    debug!("Received ADP Packet: Type={}, Len={}", msg_type, len);
+    let msg_type = header[1] as u32;
+    let len = u32::from_be_bytes([header[2], header[3], header[4], header[5]]) as usize;
+
+    debug!("Received AOSP PairingPacket: Type={}, Len={}", msg_type, len);
 
     let mut payload = vec![0u8; len];
     reader.read_exact(&mut payload).await?;
@@ -154,18 +234,13 @@ async fn read_tlp_packet<R: AsyncReadExt + Unpin>(reader: &mut R) -> anyhow::Res
     Ok((msg_type, payload))
 }
 
-/// Membaca pesan konfirmasi atau error dengan penanganan TLP standar.
-async fn read_confirmation_message<R: AsyncReadExt + Unpin>(reader: &mut R) -> anyhow::Result<Vec<u8>> {
+/// Membaca PeerInfo dari server.
+async fn read_peer_info_message<R: AsyncReadExt + Unpin>(reader: &mut R) -> anyhow::Result<Vec<u8>> {
     let (msg_type, payload) = read_tlp_packet(reader).await?;
     debug!("Step 4: Received message type {}", msg_type);
 
-    if msg_type == 257 {
-        error!("Server returned protocol error (257). Raw Payload: {}", hex::encode(&payload));
-        return Err(anyhow::anyhow!("Server rejected pairing (Error 257). Biasanya disebabkan Pairing Code salah atau mismatch identitas."));
-    }
-
-    if msg_type != MSG_TYPE_CONFIRMATION {
-        return Err(anyhow::anyhow!("Unexpected message type: {}. Expected 2.", msg_type));
+    if msg_type != MSG_TYPE_PEER_INFO {
+        return Err(anyhow::anyhow!("Unexpected message type: {}. Expected {} (PeerInfo).", msg_type, MSG_TYPE_PEER_INFO));
     }
     Ok(payload)
 }
@@ -232,9 +307,9 @@ pub async fn init_pairing(port: u16, pairing_code: String) -> anyhow::Result<Str
 
     info!("Starting TLS Handshake...");
     match tokio_boring::connect(config, "localhost", stream).await {
-        Ok(ssl_stream) => {
-            let (ssl_read, mut ssl_write) = tokio::io::split(ssl_stream);
-            let mut ssl_reader = BufReader::new(ssl_read);
+        Ok(mut ssl_stream) => {
+            // Gunakan stream TLS sebagai satu kesatuan untuk membaca dan menulis.
+            // Split pada SslStream dapat memperkenalkan fragmentasi internal yang salah.
 
             // --- TAHAP SPAKE2 ---
             // Identitas HARUS sesuai standar AOSP pairing_connection.cpp
@@ -258,13 +333,13 @@ pub async fn init_pairing(port: u16, pairing_code: String) -> anyhow::Result<Str
 
             // MSG1: Client Hello (Exchange)
             info!("Step 1/5: Sending SPAKE2 Exchange (Client)");
-            write_spake2_exchange_message(&mut ssl_write, MSG_TYPE_EXCHANGE, msg1_payload_to_send).await?;
+            write_spake2_exchange_message(&mut ssl_stream, MSG_TYPE_EXCHANGE, msg1_payload_to_send).await?;
 
             // MSG2: Menerima Server Public Value
             info!("Step 2/5: Waiting for SPAKE2 Exchange (Server)");
             let (m_type, msg2_payload) = tokio::time::timeout(
                 tokio::time::Duration::from_secs(5), 
-                read_spake2_exchange_message(&mut ssl_reader) // Menggunakan fungsi khusus
+                read_spake2_exchange_message(&mut ssl_stream)
             ).await.map_err(|_| anyhow::anyhow!("Timeout waiting for SPAKE2 Exchange (MSG2)"))??;
 
             if m_type != MSG_TYPE_EXCHANGE {
@@ -300,6 +375,7 @@ pub async fn init_pairing(port: u16, pairing_code: String) -> anyhow::Result<Str
                 .map_err(|e| anyhow::anyhow!("SPAKE2 finish error: {:?}", e))?;
             
             debug!("SPAKE2 shared secret generated, length: {}", shared_secret.len());
+            debug_shared_secret(&shared_secret);
             
             let (kc, ks) = derive_keys(&shared_secret)?;
 
@@ -311,24 +387,56 @@ pub async fn init_pairing(port: u16, pairing_code: String) -> anyhow::Result<Str
             
             // MSG3: Kirim HMAC konfirmasi client
             let msg3_data = compute_conf_hmac(&kc, &hmac_input)?;
-            info!("Step 3/5: Sending HMAC Confirmation (Client)");
+            info!("Step 3/6: Sending HMAC Confirmation (Client)");
             debug!("Computed MSG3 confirmation HMAC: {}", hex::encode(&msg3_data));
-            write_confirmation_message(&mut ssl_write, &msg3_data).await?;
+            write_confirmation_message(&mut ssl_stream, &msg3_data).await?;
             debug!("MSG3 sent successfully");
 
-            // MSG4: Menerima Konfirmasi Server
-            info!("Step 4/5: Waiting for HMAC Confirmation (Server)");
-            let msg4_payload = tokio::time::timeout(
-                tokio::time::Duration::from_secs(5), 
-                read_confirmation_message(&mut ssl_reader)
-            ).await.map_err(|_| anyhow::anyhow!("Timeout waiting for MSG4"))??;
-            debug!("Received MSG4 confirmation payload: {}", hex::encode(&msg4_payload));
-            
-            // Verifikasi HMAC server menggunakan kunci Ks dan payload (MSG1 || MSG2)
-            let expected_server_conf = compute_conf_hmac(&ks, &hmac_input)?;
-            if expected_server_conf != msg4_payload {
-                return Err(anyhow::anyhow!("SPAKE2 Confirmation mismatch! Possible wrong pairing code."));
-            }
+            // MSG4: Menerima respons server
+            info!("Step 4/6: Waiting for server response");
+            let (next_type, next_payload) = tokio::time::timeout(
+                tokio::time::Duration::from_secs(5),
+                read_tlp_packet(&mut ssl_stream)
+            ).await.map_err(|_| anyhow::anyhow!("Timeout waiting for server response"))??;
+
+            let server_peer_info_payload = match next_type {
+                MSG_TYPE_EXCHANGE => {
+                    if next_payload.len() != 32 {
+                        return Err(anyhow::anyhow!("Unexpected server confirmation length: {}", next_payload.len()));
+                    }
+                    debug!("Received server confirmation HMAC packet");
+                    verify_conf_hmac(&ks, &hmac_input, &next_payload)?;
+                    info!("Server confirmation verified");
+
+                    info!("Step 5/6: Waiting for PeerInfo (Server)");
+                    tokio::time::timeout(
+                        tokio::time::Duration::from_secs(5),
+                        read_peer_info_message(&mut ssl_stream)
+                    ).await.map_err(|_| anyhow::anyhow!("Timeout waiting for PeerInfo"))??
+                }
+                MSG_TYPE_PEER_INFO => {
+                    debug!("Received PeerInfo directly after client confirmation");
+                    next_payload
+                }
+                other => {
+                    return Err(anyhow::anyhow!("Unexpected packet type after client confirmation: {}", other));
+                }
+            };
+            debug!("Received server PeerInfo payload: {} bytes", server_peer_info_payload.len());
+
+            let server_peer_info = match decode_peer_info_payload(&server_peer_info_payload) {
+                Ok(info) => {
+                    info!("Received server PeerInfo: name={}, type={}, public_key_len={}",
+                        info.name,
+                        info.type_,
+                        info.public_key.len());
+                    Some(info)
+                }
+                Err(e) => {
+                    warn!("Failed to decode server PeerInfo, continuing anyway: {}", e);
+                    None
+                }
+            };
 
             // --- TAHAP MSG5: PeerInfo (Wrapped Public Key) ---
             info!("Step 5/5: Sending PeerInfo (Protobuf)");
@@ -343,7 +451,7 @@ pub async fn init_pairing(port: u16, pairing_code: String) -> anyhow::Result<Str
             let mut peer_info_bin = Vec::new();
             peer_info.encode(&mut peer_info_bin)?;
 
-            write_message(&mut ssl_write, MSG_TYPE_PEER_INFO, &peer_info_bin).await?;
+            write_message(&mut ssl_stream, MSG_TYPE_PEER_INFO, &peer_info_bin).await?;
 
             // Jeda agar adbd sempat memproses MSG5 sebelum socket ditutup
             tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
