@@ -1,41 +1,44 @@
 --------- beginning of main
-03-30 03:00:25.477 13126 18179 I flutter : [IMPORTANT:flutter/shell/platform/android/android_context_vk_impeller.cc(62)] Using the Impeller rendering backend (Vulkan).
-03-30 03:00:25.570 13126 18212 I flutter : The Dart VM service is listening on http://127.0.0.1:32921/uUTte8LpaZU=/
-03-30 03:00:27.652 13126 13126 I flutter : [03:00:27] [RUST:INFO] Rust logger initialized via StreamSink
-03-30 03:00:27.657 13126 13126 I flutter : [03:00:27] [RUST:INFO] Bridge: Aliran log telah tersambung ke Dart.
-03-30 03:00:30.564 13126 13126 I flutter : [03:00:30] DART: Memulai mDNS discovery untuk _adb-tls-pairing._tcp
-03-30 03:00:36.523 13126 13126 I flutter : [03:00:36] DART: Layanan ditemukan: adb-7pgqlndalbscukg6-617mqw pada port 38621
-03-30 03:00:36.625 13126 13126 I flutter : [03:00:36] DART: Discovery selesai. Port 38621 siap. Menunggu input user...
-03-30 03:00:43.233 13126 18364 I flutter : [IMPORTANT:flutter/shell/platform/android/android_context_vk_impeller.cc(62)] Using the Impeller rendering backend (Vulkan).
-03-30 03:00:44.619 13126 13126 I flutter : DART BG: lookup isolate...
-03-30 03:00:44.625 13126 13126 I flutter : DART BG: payload = 38621
-03-30 03:00:44.625 13126 13126 I flutter : DART BG: input = 713215
-03-30 03:00:44.627 13126 13126 I flutter : DART BG: sendPort = SendPort
-03-30 03:00:44.628 13126 13126 I flutter : DART: Background Isolate mengirim data ke Main Isolate...
-03-30 03:00:44.656 13126 13126 I flutter : [03:00:44] DART: Memanggil Rust init_pairing(port: 38621, code: 713215)
-03-30 03:00:44.677 13126 13126 I flutter : [03:00:44] [RUST:INFO] init_pairing dimulai: port=38621, code=713215
-03-30 03:00:44.679 13126 13126 I flutter : [03:00:44] [RUST:DEBUG] Generating RSA 2048 keys and X509 certificate...
-03-30 03:00:44.962 13126 13126 I flutter : [03:00:44] [RUST:INFO] Generated self-signed certificate and private key
-03-30 03:00:44.964 13126 13126 I flutter : [03:00:44] [RUST:INFO] Connecting to 127.0.0.1:38621
-03-30 03:00:44.967 13126 13126 I flutter : [03:00:44] [RUST:INFO] Starting TLS Handshake...
-03-30 03:00:44.994 13126 13126 I flutter : [03:00:44] [RUST:DEBUG] MSG1 prefix = 65, payload size = 32
-03-30 03:00:44.995 13126 13126 I flutter : [03:00:44] [RUST:DEBUG] MSG1 payload to send: efa4161b5637c0a9ebcc9c62beb6f80a3c6443937d80ef27d3c7a9bd98120173
-03-30 03:00:44.998 13126 13126 I flutter : [03:00:44] [RUST:INFO] Step 1/5: Sending SPAKE2 Exchange (Client)
-03-30 03:00:44.999 13126 13126 I flutter : [03:00:44] [RUST:DEBUG] Sending SPAKE2 Exchange: Type=1, Len=32
-03-30 03:00:45.001 13126 13126 I flutter : [03:00:45] [RUST:DEBUG] Sent ADP Packet: Type=1, Len=32
-03-30 03:00:45.002 13126 13126 I flutter : [03:00:45] [RUST:INFO] Step 2/5: Waiting for SPAKE2 Exchange (Server)
-03-30 03:00:45.003 13126 13126 I flutter : [03:00:45] [RUST:DEBUG] Received ADP Packet: Type=1, Len=32
-03-30 03:00:45.005 13126 13126 I flutter : [03:00:45] [RUST:DEBUG] Received MSG2 payload length: 32
-03-30 03:00:45.006 13126 13126 I flutter : [03:00:45] [RUST:DEBUG] MSG2 payload raw: 98a66e62d71be4362b4cb18fbb06f6c41797591a8dfeda744b5a90c0a1eafc1e
-03-30 03:00:45.008 13126 13126 I flutter : [03:00:45] [RUST:DEBUG] Processing MSG2 by prepending peer prefix: 66
-03-30 03:00:45.009 13126 13126 I flutter : [03:00:45] [RUST:INFO] Step 3/5: Sending HMAC Confirmation (Client)
-03-30 03:00:45.011 13126 13126 I flutter : [03:00:45] [RUST:DEBUG] Computed MSG3 confirmation HMAC: 5d62e7af8fd0f53b861af84303da7aaa9e1e244f464299800c6f643af35b4a87
-03-30 03:00:45.012 13126 13126 I flutter : [03:00:45] [RUST:DEBUG] Sending SPAKE2 Confirmation message: Type=2, Len=32
-03-30 03:00:45.014 13126 13126 I flutter : [03:00:45] [RUST:DEBUG] Sent ADP Packet: Type=2, Len=32
-03-30 03:00:45.015 13126 13126 I flutter : [03:00:45] [RUST:DEBUG] MSG3 sent successfully
-03-30 03:00:45.017 13126 13126 I flutter : [03:00:45] [RUST:INFO] Step 4/5: Waiting for HMAC Confirmation (Server)
-03-30 03:00:45.019 13126 13126 I flutter : [03:00:45] [RUST:DEBUG] Received ADP Packet: Type=257, Len=8208
-03-30 03:00:45.020 13126 13126 I flutter : [03:00:45] [RUST:DEBUG] Step 4: Received message type 257
-03-30 03:00:45.023 13126 13126 I flutter : [03:00:45] [RUST:ERROR] Server returned protocol error (257). Raw Payload: 3b35d75fc8f79dc7510e704ec454f4215a49302b166805eea86e7475652ede1802bfeee2c51a7dcb74e90a5a831c6ac5a2470149494d4f40c7c80cfe4abf2bd602166e8c594ebf0bd2e6689624a4915c8bba211dffed73a4b8dcd9308c06e01d8dec5594f7778242e1c57522d1dfaedcb83f14317ecbeacf758bd9d7fa44ab01b776c38ba0fa78940113bde44ba5c2cc93d534f3be6a5be13f1ce5dc22e0842a93e85bd57ee31a4f1b34960ffa0bc57dc5af2ad3a4fa568a1a1eb875c7cb8e1d8d9ef1ef32c722fd1e03fd0f5ef2863ef73b253a4835e22dde01aeeb1d3c906d4bd52d11f87986b6f70579adb58f79f79473fbe521c745f025239c34e8bf1311b3daf89d71aea9804cc4c9374e679e74310fe425b4f23bd35c374eca88b3df9354010da7c34c209e5a0b38d7e10b89c543c31beb74b0c8bac2f55064e69ca26e48de037c08ba614d75bb7aa1d68311fd48981080fbdef24179e172271c99576a91a155706d32733cecf6b323ef700d1dd43701f3046db4d850a802889d539cad6a57628d6c7056be05d1d03a6b70121a820c7fc2f942babc51c28395defa94fd192197a6f743661f9f0f953f3f3c56b3ca9b6948d988c014387351662bcd0b97bc5ab032f4ed912f234c1f36463b1246d3b67ba1724f75ebe897
+03-30 19:25:16.648  8604 13362 I flutter : [IMPORTANT:flutter/shell/platform/android/android_context_vk_impeller.cc(62)] Using the Impeller rendering backend (Vulkan).
+03-30 19:25:16.761  8604 13390 I flutter : The Dart VM service is listening on http://127.0.0.1:43067/cn7ZEbfLWtk=/
+03-30 19:25:18.651  8604  8604 I flutter : [19:25:18] [RUST:INFO] Rust logger initialized via StreamSink
+03-30 19:25:18.654  8604  8604 I flutter : [19:25:18] [RUST:INFO] Bridge: Aliran log telah tersambung ke Dart.
+03-30 19:25:20.682  8604  8604 I flutter : [19:25:20] DART: Memulai mDNS discovery untuk _adb-tls-pairing._tcp
+03-30 19:25:24.530  8604  8604 I flutter : [19:25:24] DART: Layanan ditemukan: adb-7pgqlndalbscukg6-617mqw pada port 43965
+03-30 19:25:24.618  8604  8604 I flutter : [19:25:24] DART: Discovery selesai. Port 43965 siap. Menunggu input user...
+03-30 19:25:32.561  8604 13532 I flutter : [IMPORTANT:flutter/shell/platform/android/android_context_vk_impeller.cc(62)] Using the Impeller rendering backend (Vulkan).
+03-30 19:25:33.661  8604  8604 I flutter : DART BG: lookup isolate...
+03-30 19:25:33.665  8604  8604 I flutter : DART BG: payload = 43965
+03-30 19:25:33.666  8604  8604 I flutter : DART BG: input = 673276
+03-30 19:25:33.667  8604  8604 I flutter : DART BG: sendPort = SendPort
+03-30 19:25:33.668  8604  8604 I flutter : DART: Background Isolate mengirim data ke Main Isolate...
+03-30 19:25:33.682  8604  8604 I flutter : [19:25:33] DART: Memanggil Rust init_pairing(port: 43965, code: 673276)
+03-30 19:25:33.695  8604  8604 I flutter : [19:25:33] [RUST:INFO] init_pairing dimulai: port=43965, code=673276
+03-30 19:25:33.698  8604  8604 I flutter : [19:25:33] [RUST:DEBUG] Generating RSA 2048 keys and X509 certificate...
+03-30 19:25:34.349  8604  8604 I flutter : [19:25:34] [RUST:INFO] Generated self-signed certificate and private key
+03-30 19:25:34.351  8604  8604 I flutter : [19:25:34] [RUST:INFO] Connecting to 127.0.0.1:43965
+03-30 19:25:34.354  8604  8604 I flutter : [19:25:34] [RUST:INFO] Starting TLS Handshake...
+03-30 19:25:34.387  8604  8604 I flutter : [19:25:34] [RUST:DEBUG] MSG1 prefix = 65, payload size = 32
+03-30 19:25:34.388  8604  8604 I flutter : [19:25:34] [RUST:DEBUG] MSG1 payload to send: 3a838d9d07316ba301aeebccf0b68f2149579903ff51a60ba709b11473114f25
+03-30 19:25:34.390  8604  8604 I flutter : [19:25:34] [RUST:INFO] Step 1/5: Sending SPAKE2 Exchange (Client)
+03-30 19:25:34.391  8604  8604 I flutter : [19:25:34] [RUST:DEBUG] Sending SPAKE2 Exchange: Type=1, Len=32
+03-30 19:25:34.393  8604  8604 I flutter : [19:25:34] [RUST:DEBUG] Sent ADP Packet: Type=1, Len=32
+03-30 19:25:34.394  8604  8604 I flutter : [19:25:34] [RUST:INFO] Step 2/5: Waiting for SPAKE2 Exchange (Server)
+03-30 19:25:34.396  8604  8604 I flutter : [19:25:34] [RUST:DEBUG] Received ADP Packet: Type=1, Len=32
+03-30 19:25:34.397  8604  8604 I flutter : [19:25:34] [RUST:DEBUG] Received MSG2 payload length: 32
+03-30 19:25:34.398  8604  8604 I flutter : [19:25:34] [RUST:DEBUG] MSG2 payload raw: a9ca7f6d52929102bb01a8d58b9991b6e034194c45ace218d1218756628817d3
+03-30 19:25:34.400  8604  8604 I flutter : [19:25:34] [RUST:DEBUG] Processing MSG2 by prepending peer prefix: 66
+03-30 19:25:34.401  8604  8604 I flutter : [19:25:34] [RUST:DEBUG] SPAKE2 shared secret generated, length: 32
+03-30 19:25:34.402  8604  8604 I flutter : [19:25:34] [RUST:DEBUG] Deriving keys: shared_secret_len=32 bytes
+03-30 19:25:34.403  8604  8604 I flutter : [19:25:34] [RUST:DEBUG] Keys derived: Kc=fbc80b2e..., Ks=54229a19...
+03-30 19:25:34.404  8604  8604 I flutter : [19:25:34] [RUST:INFO] Step 3/5: Sending HMAC Confirmation (Client)
+03-30 19:25:34.406  8604  8604 I flutter : [19:25:34] [RUST:DEBUG] Computed MSG3 confirmation HMAC: b0a9ca095686b4833d3dd3b8d9068311d5cb26eebd8b037f1da685d7d031a4de
+03-30 19:25:34.407  8604  8604 I flutter : [19:25:34] [RUST:DEBUG] Sending SPAKE2 Confirmation message: Type=2, Len=32
+03-30 19:25:34.409  8604  8604 I flutter : [19:25:34] [RUST:DEBUG] Sent ADP Packet: Type=2, Len=32
+03-30 19:25:34.410  8604  8604 I flutter : [19:25:34] [RUST:DEBUG] MSG3 sent successfully
+03-30 19:25:34.412  8604  8604 I flutter : [19:25:34] [RUST:INFO] Step 4/5: Waiting for HMAC Confirmation (Server)
+03-30 19:25:34.413  8604  8604 I flutter : [19:25:34] [RUST:DEBUG] Received ADP Packet: Type=257, Len=8208
+03-30 19:25:34.415  8604  8604 I flutter : [19:25:34] [RUST:DEBUG] Step 4: Received message type 257
+03-30 19:25:34.416  8604  8604 I flutter : [19:25:34] [RUST:ERROR] Server returned protocol error (257). Raw Payload: 7adda966faaebe4d1e2beb8c87c4b682d2b7dbde2789351c03d9cf1712400f377f83ba6b62b65e0d9c14825201ca7bfb00e230210be0d37f5d8bcd2631acde2efca91678bef8c6c1acf3fb2148c11fbda483050b664fb5e0ef0a288872988a684e54e9772142b1785d45507ee4bfe820f4a881f1b595114f00029cd194427b26a4dc1c51ccb99d022370593864b8c001451d569e7edd2dee404760189fb5121a39d62e8a36a592051afc43d92bf14e6136cf729f6662084b7bb48147bdaa1a26375b0c1c8acbc44b4f3f70c7b729cd1dc10dbbf2f7e49864ddee32e37e98832415b285d0eb878a491ec76819fb127c3d736a38706804f53f6e6ad9167367eec759d167c196b960b87a7281f62836fd52231f82a82a0a894c788b2c82aa59191fa1f8ef6f74a14cd072236b13d702863b32da7d06712fafc981d4204d2b427d1f885ff6bb7ec38102c70f1371a50c07ed1dc870a3c2d65f3544b880c8f5b3ef8cfc7a884d6c5c95bfee482bddf0bdb75a4159f2dd8b2fab12f025d6b8ab4866c548a9385a01f7f3845d91a5f435caee89eb7f47ecc31921a2004272c10e109c7440350162eaff740562f2b8627c4b6ecec482f1dcac8f7ec3f3dfb57008530ca243242f5b208a932b03155e54c6a3cf715b7b38e78459617e5658
 
-Error: AnyhowException(Server rejected pairing (Error 257). pairing code salah atau mismatch identity.)
+Error: AnyhowException(Server rejected pairing (Error 257). Pairing code salah atau mismatch Identity.)

@@ -1,16 +1,6 @@
-async fn write_message<W: AsyncWriteExt + Unpin>(writer: &mut W, msg_type: u32, payload: &[u8]) -> anyhow::Result<()> {
-    // Kirim 4 byte prefix (Type di byte pertama)
-    let mut prefix = [0u8; 4];
-    prefix[0] = msg_type as u8;
-    writer.write_all(&prefix).await?;
+let mut hmac_input = Vec::with_capacity(64);
+hmac_input.extend_from_slice(&msg1_sent);     // 32 byte
+hmac_input.extend_from_slice(&msg2_received); // 32 byte
 
-    // Kirim 2 byte Length (Big Endian)
-    writer.write_u16(payload.len() as u16).await?;
-
-    // Kirim Payload
-    writer.write_all(payload).await?;
-    writer.flush().await?;
-    
-    debug!("Sent ADP Packet: Type={}, Len={}", msg_type, payload.len());
-    Ok(())
-}
+// Hitung HMAC menggunakan Kc (32 byte pertama dari HKDF)
+let msg3_hmac = compute_hmac(&kc, &hmac_input);

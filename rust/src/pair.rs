@@ -63,20 +63,40 @@ impl log::Log for FlutterLogger {
     fn flush(&self) {}
 }
 
-/// Derivasi kunci pairing menggunakan HKDF-SHA256 sesuai standar AOSP
-fn derive_pairing_key(shared_secret: &[u8]) -> anyhow::Result<[u8; 32]> {
+fn derive_keys(shared_secret: &[u8]) -> anyhow::Result<([u8; 32], [u8; 32])> {
+    use ring::hkdf;
+
+    debug!("Deriving keys: shared_secret_len={} bytes", shared_secret.len());
+
+    // Helper struct agar ring mengizinkan ekstraksi lebih dari 32 byte.
+    // Secara default, hkdf::Algorithm sebagai KeyType membatasi output hanya 32 byte.
+    struct HkdfOutput(usize);
+    impl hkdf::KeyType for HkdfOutput {
+        fn len(&self) -> usize { self.0 }
+    }
+
     let salt = hkdf::Salt::new(hkdf::HKDF_SHA256, &[]);
     let prk = salt.extract(shared_secret);
-    // Mencoba tanpa null terminator
-    let info = [b"adb pairing_auth" as &[u8]];
-    let mut okm = [0u8; 32];
     
-    prk.expand(&info, hkdf::HKDF_SHA256)
-        .map_err(|_| anyhow::anyhow!("HKDF expand failed"))?
-        .fill(&mut okm)
-        .map_err(|_| anyhow::anyhow!("HKDF fill failed"))?;
-        
-    Ok(okm)
+    // Menggunakan null terminator
+    let info: &[&[u8]] = &[b"adb pairing auth"];
+    
+    // Minta 64 byte: 32 byte pertama untuk Kc (Client), 32 byte kedua untuk Ks (Server)
+    let okm_generator = prk.expand(info, HkdfOutput(64))
+        .map_err(|_| anyhow::anyhow!("HKDF expand failed: invalid info or secret"))?;
+    
+    let mut okm = [0u8; 64];
+    okm_generator.fill(&mut okm)
+        .map_err(|_| anyhow::anyhow!("HKDF fill failed: could not generate 64 bytes"))?;
+
+    let mut kc = [0u8; 32]; // Client Key
+    let mut ks = [0u8; 32]; // Server Key
+    kc.copy_from_slice(&okm[0..32]);
+    ks.copy_from_slice(&okm[32..64]);
+    
+    debug!("Keys derived: Kc={}..., Ks={}...", hex::encode(&kc[..4]), hex::encode(&ks[..4]));
+    
+    Ok((kc, ks))
 }
 
 /// Hitung HMAC-SHA256 untuk konfirmasi pertukaran kunci
@@ -218,11 +238,11 @@ pub async fn init_pairing(port: u16, pairing_code: String) -> anyhow::Result<Str
 
             // --- TAHAP SPAKE2 ---
             // Identitas HARUS sesuai standar AOSP pairing_connection.cpp
+            // Menghapus \0 karena BoringSSL biasanya menggunakan panjang string tanpa null
             let (state, msg1_data) = Spake2::<Ed25519Group>::start_a(
                 &Password::new(pairing_code.as_bytes()),
-                // Mencoba tanpa null terminator
-                &Identity::new(b"adb pairing client"),
-                &Identity::new(b"adb pairing server"),
+                &Identity::new(b"adb pair client"),
+                &Identity::new(b"adb pair server"),
             );
 
             // The spake2 crate's Ed25519Group produces 33 bytes: [prefix, point_bytes...]
@@ -277,13 +297,20 @@ pub async fn init_pairing(port: u16, pairing_code: String) -> anyhow::Result<Str
             };
 
             let shared_secret = state.finish(&msg2_spake_for_finish)
-                .map_err(|e| anyhow::anyhow!("SPAKE2 Error: {:?}", e))?;
+                .map_err(|e| anyhow::anyhow!("SPAKE2 finish error: {:?}", e))?;
             
-            let pairing_key = derive_pairing_key(&shared_secret)?;
+            debug!("SPAKE2 shared secret generated, length: {}", shared_secret.len());
+            
+            let (kc, ks) = derive_keys(&shared_secret)?;
+
+            // Konstruksi Payload HMAC (MSG1 || MSG2)
+            // Android menggabungkan (concatenate) pertukaran pesan sebelumnya untuk validasi
+            let mut hmac_input = Vec::with_capacity(64);
+            hmac_input.extend_from_slice(msg1_payload_to_send); // MSG1 data (32 bytes)
+            hmac_input.extend_from_slice(&msg2_payload);       // MSG2 data (32 bytes)
             
             // MSG3: Kirim HMAC konfirmasi client
-            // HMAC dihitung dari payload 32-byte yang diterima dari wire
-            let msg3_data = compute_conf_hmac(&pairing_key, &msg2_payload)?;
+            let msg3_data = compute_conf_hmac(&kc, &hmac_input)?;
             info!("Step 3/5: Sending HMAC Confirmation (Client)");
             debug!("Computed MSG3 confirmation HMAC: {}", hex::encode(&msg3_data));
             write_confirmation_message(&mut ssl_write, &msg3_data).await?;
@@ -297,8 +324,8 @@ pub async fn init_pairing(port: u16, pairing_code: String) -> anyhow::Result<Str
             ).await.map_err(|_| anyhow::anyhow!("Timeout waiting for MSG4"))??;
             debug!("Received MSG4 confirmation payload: {}", hex::encode(&msg4_payload));
             
-            // Verifikasi HMAC server berdasarkan payload 32-byte yang kita kirim tadi
-            let expected_server_conf = compute_conf_hmac(&pairing_key, msg1_payload_to_send)?;
+            // Verifikasi HMAC server menggunakan kunci Ks dan payload (MSG1 || MSG2)
+            let expected_server_conf = compute_conf_hmac(&ks, &hmac_input)?;
             if expected_server_conf != msg4_payload {
                 return Err(anyhow::anyhow!("SPAKE2 Confirmation mismatch! Possible wrong pairing code."));
             }
