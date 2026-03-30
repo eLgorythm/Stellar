@@ -7,7 +7,7 @@ use boring::x509::{X509, X509Name};
 use ring::{hkdf, hmac};
 use spake2::{Ed25519Group, Identity, Password, Spake2};
 use std::net::SocketAddr;
-use tokio::io::{AsyncReadExt, AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncReadExt, AsyncBufRead, AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use log::{info, debug, error};
 use std::sync::RwLock;
@@ -67,6 +67,7 @@ impl log::Log for FlutterLogger {
 fn derive_pairing_key(shared_secret: &[u8]) -> anyhow::Result<[u8; 32]> {
     let salt = hkdf::Salt::new(hkdf::HKDF_SHA256, &[]);
     let prk = salt.extract(shared_secret);
+    // Mencoba tanpa null terminator
     let info = [b"adb pairing_auth" as &[u8]];
     let mut okm = [0u8; 32];
     
@@ -85,11 +86,8 @@ fn compute_conf_hmac(key: &[u8], payload: &[u8]) -> anyhow::Result<Vec<u8>> {
     Ok(tag.as_ref().to_vec())
 }
 
-/// Format message PARE for SPAKE2 Exchange: [type: u32 LE][payload]
-/// Android client/server often use raw exchange payload without explicit length here.
 async fn write_spake2_exchange_message<W: AsyncWriteExt + Unpin>(writer: &mut W, msg_type: u32, payload: &[u8]) -> anyhow::Result<()> {
-    // Gunakan framing standar [Type][Len][Payload] untuk kompatibilitas yang lebih baik
-    debug!("Sending SPAKE2 Exchange message: Type={}, Len={}", msg_type, payload.len());
+    debug!("Sending SPAKE2 Exchange: Type={}, Len={}", msg_type, payload.len());
     write_message(writer, msg_type, payload).await?;
     Ok(())
 }
@@ -100,99 +98,60 @@ async fn write_confirmation_message<W: AsyncWriteExt + Unpin>(writer: &mut W, pa
     Ok(())
 }
 
-/// Format variable-length message PARE: [type: u32 LE][len: u16 BE][payload]
-/// Note: The framing uses a 2-byte Big Endian length prefix for the payload, 
-/// which matches the "ADP" framing used by most modern Android adbd pairing implementations.
+/// Format TLP Standar ADB: [type: u32 LE][len: u32 LE][payload]
 async fn write_message<W: AsyncWriteExt + Unpin>(writer: &mut W, msg_type: u32, payload: &[u8]) -> anyhow::Result<()> {
-    writer.write_u32_le(msg_type).await?;
-    // Using u16 (Big Endian) to match the server's expected 2-byte length prefix (00 20)
+    // Kirim 4 byte prefix (Type di byte pertama sesuai TODO.md)
+    let mut prefix = [0u8; 4];
+    let type_bytes = msg_type.to_le_bytes();
+    prefix.copy_from_slice(&type_bytes);
+    writer.write_all(&prefix).await?;
+
+    // Kirim 2 byte Length (Big Endian)
     writer.write_u16(payload.len() as u16).await?;
+
+    // Kirim Payload
     writer.write_all(payload).await?;
     writer.flush().await?;
-    debug!("Sent variable-length message: Type={}, Len={}, Payload={}", msg_type, payload.len(), hex::encode(payload));
+    
+    debug!("Sent ADP Packet: Type={}, Len={}", msg_type, payload.len());
     Ok(())
 }
 
-#[allow(dead_code)]
-async fn read_message<R: AsyncReadExt + Unpin>(reader: &mut R) -> anyhow::Result<(u32, Vec<u8>)> {
-    let msg_type = reader.read_u32_le().await?;
-    let payload_len = reader.read_u32_le().await?;
-    debug!("Read variable-length message header: Type={}, Len={}", msg_type, payload_len);
+/// Membaca paket TLP ADB (ADP): [type: u32 LE][len: u16 BE][payload]
+/// Digunakan untuk membersihkan buffer secara total setiap pembacaan.
+async fn read_tlp_packet<R: AsyncReadExt + Unpin>(reader: &mut R) -> anyhow::Result<(u32, Vec<u8>)> {
+    let mut header = [0u8; 6]; // 4 byte Type + 2 byte Length
+    reader.read_exact(&mut header).await?;
 
-    if payload_len > MAX_PAYLOAD {
-        return Err(anyhow::anyhow!("Payload too large: {} bytes (Type={})", payload_len, msg_type));
-    }
+    let msg_type = u32::from_le_bytes([header[0], header[1], header[2], header[3]]);
+    let len = u16::from_be_bytes([header[4], header[5]]) as usize;
 
-    let mut payload = vec![0u8; payload_len as usize];
-    if payload_len > 0 {
-        reader.read_exact(&mut payload).await?;
-    }
+    debug!("Received ADP Packet: Type={}, Len={}", msg_type, len);
+
+    let mut payload = vec![0u8; len];
+    reader.read_exact(&mut payload).await?;
     
-    debug!("Received variable-length message: Type={}, Len={}", msg_type, payload_len);
     Ok((msg_type, payload))
 }
 
-/// Helper untuk membaca payload yang mungkin memiliki prefix panjang 2-byte BE atau 4-byte LE.
-async fn read_adp_payload<R: AsyncReadExt + Unpin>(reader: &mut R) -> anyhow::Result<Vec<u8>> {
-    // Intip 2 byte pertama
-    let mut prefix2 = [0u8; 2];
-    reader.read_exact(&mut prefix2).await?;
-
-    // Cek apakah ini 2-byte Big Endian length (0x0020 atau 0x0021)
-    if prefix2 == [0x00, 0x20] || prefix2 == [0x00, 0x21] {
-        let len = u16::from_be_bytes(prefix2) as usize;
-        let mut payload = vec![0u8; len];
-        reader.read_exact(&mut payload).await?;
-        debug!("Detected 2-byte BE length prefix: {}, read payload", len);
-        return Ok(payload);
-    }
-
-    // Jika bukan, mungkin ini 4-byte Little Endian length atau raw data.
-    // Kita baca 2 byte lagi untuk melengkapi 4 byte.
-    let mut suffix2 = [0u8; 2];
-    reader.read_exact(&mut suffix2).await?;
-    
-    let len_le = u32::from_le_bytes([prefix2[0], prefix2[1], suffix2[0], suffix2[1]]);
-    
-    if len_le == 32 || len_le == 33 {
-        let mut payload = vec![0u8; len_le as usize];
-        reader.read_exact(&mut payload).await?;
-        debug!("Detected 4-byte LE length prefix: {}, read payload", len_le);
-        Ok(payload)
-    } else {
-        // Asumsi ini adalah raw data tanpa prefix, 4 byte tadi adalah bagian dari payload.
-        let mut payload = vec![0u8; 32];
-        payload[0..2].copy_from_slice(&prefix2);
-        payload[2..4].copy_from_slice(&suffix2);
-        reader.read_exact(&mut payload[4..]).await?;
-        debug!("No length prefix detected, treated as raw 32-byte payload");
-        Ok(payload)
-    }
-}
-
-/// Reads a SPAKE2 Exchange message in a hybrid Android ADB pairing format.
-/// First it tries to detect [len: u32 LE] if present, otherwise it falls back to raw 32/33-byte payload.
+/// Membaca pesan konfirmasi atau error dengan penanganan TLP standar.
 async fn read_confirmation_message<R: AsyncReadExt + Unpin>(reader: &mut R) -> anyhow::Result<Vec<u8>> {
-    let msg_type = reader.read_u32_le().await?;
-    debug!("Read message header for SPAKE2 Confirmation: Type={}", msg_type);
+    let (msg_type, payload) = read_tlp_packet(reader).await?;
+    debug!("Step 4: Received message type {}", msg_type);
+
+    if msg_type == 257 {
+        error!("Server returned protocol error (257). Raw Payload: {}", hex::encode(&payload));
+        return Err(anyhow::anyhow!("Server rejected pairing (Error 257). Biasanya disebabkan Pairing Code salah atau mismatch identitas."));
+    }
 
     if msg_type != MSG_TYPE_CONFIRMATION {
-        return Err(anyhow::anyhow!("Unexpected message type for SPAKE2 Confirmation: {}. Expected MSG_TYPE_CONFIRMATION (2).", msg_type));
+        return Err(anyhow::anyhow!("Unexpected message type: {}. Expected 2.", msg_type));
     }
-
-    read_adp_payload(reader).await
+    Ok(payload)
 }
 
 async fn read_spake2_exchange_message<R: AsyncReadExt + Unpin>(reader: &mut R) -> anyhow::Result<(u32, Vec<u8>)> {
-    let msg_type = reader.read_u32_le().await?;
-    debug!("Read message header for SPAKE2 Exchange: Type={}", msg_type);
-
-    if msg_type != MSG_TYPE_EXCHANGE {
-        return Err(anyhow::anyhow!("Unexpected message type for SPAKE2 Exchange: {}. Expected MSG_TYPE_EXCHANGE (1).", msg_type));
-    }
-
-    let payload = read_adp_payload(reader).await?;
-    Ok((msg_type, payload))
+    read_tlp_packet(reader).await
 }
 
 fn generate_credentials() -> anyhow::Result<(PKey<boring::pkey::Private>, X509)> {
@@ -261,6 +220,7 @@ pub async fn init_pairing(port: u16, pairing_code: String) -> anyhow::Result<Str
             // Identitas HARUS sesuai standar AOSP pairing_connection.cpp
             let (state, msg1_data) = Spake2::<Ed25519Group>::start_a(
                 &Password::new(pairing_code.as_bytes()),
+                // Mencoba tanpa null terminator
                 &Identity::new(b"adb pairing client"),
                 &Identity::new(b"adb pairing server"),
             );
