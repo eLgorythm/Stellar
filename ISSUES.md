@@ -1,60 +1,34 @@
 --------- beginning of main
-03-31 01:22:28.111 28515  2270 I flutter : [IMPORTANT:flutter/shell/platform/android/android_context_vk_impeller.cc(62)] Using the Impeller rendering backend (Vulkan).
-03-31 01:22:28.176 28515  2299 I flutter : The Dart VM service is listening on http://127.0.0.1:38569/sn638iHjBJY=/
-03-31 01:22:30.013 28515 28515 I flutter : [01:22:30] [RUST:INFO] Rust logger initialized via StreamSink
-03-31 01:22:30.017 28515 28515 I flutter : [01:22:30] [RUST:INFO] Bridge: Aliran log telah tersambung ke Dart.
-03-31 01:22:32.471 28515 28515 I flutter : [01:22:32] DART: Memulai mDNS discovery untuk _adb-tls-pairing._tcp
-03-31 01:22:37.080 28515 28515 I flutter : [01:22:37] DART: Layanan ditemukan: adb-7pgqlndalbscukg6-617mqw pada port 35005
-03-31 01:22:37.172 28515 28515 I flutter : [01:22:37] DART: Discovery selesai. Port 35005 siap. Menunggu input user...
-03-31 01:22:43.554 28515  2852 I flutter : [IMPORTANT:flutter/shell/platform/android/android_context_vk_impeller.cc(62)] Using the Impeller rendering backend (Vulkan).
-03-31 01:22:44.511 28515 28515 I flutter : DART BG: lookup isolate...
-03-31 01:22:44.515 28515 28515 I flutter : DART BG: payload = 35005
-03-31 01:22:44.517 28515 28515 I flutter : DART BG: input = 185448
-03-31 01:22:44.518 28515 28515 I flutter : DART BG: sendPort = SendPort
-03-31 01:22:44.519 28515 28515 I flutter : DART: Background Isolate mengirim data ke Main Isolate...
-03-31 01:22:44.541 28515 28515 I flutter : [01:22:44] DART: Memanggil Rust init_pairing(port: 35005, code: 185448)
-03-31 01:22:44.553 28515 28515 I flutter : [01:22:44] [RUST:INFO] init_pairing dimulai: port=35005, code=185448
-03-31 01:22:44.556 28515 28515 I flutter : [01:22:44] [RUST:DEBUG] Generating RSA 2048 keys and X509 certificate...
-03-31 01:22:45.216 28515 28515 I flutter : [01:22:45] [RUST:INFO] Generated self-signed certificate and private key
-03-31 01:22:45.217 28515 28515 I flutter : [01:22:45] [RUST:INFO] Connecting to 127.0.0.1:35005
-03-31 01:22:45.224 28515 28515 I flutter : [01:22:45] [RUST:INFO] Starting TLS Handshake...
-03-31 01:22:45.244 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] MSG1 prefix = 65, payload size = 32
-03-31 01:22:45.245 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] MSG1 payload to send: 6697d2cd4a33e2ca7779b1d9471daefbd63b2ea4273639a43f96a17a7ad00838
-03-31 01:22:45.247 28515 28515 I flutter : [01:22:45] [RUST:INFO] Step 1/5: Sending SPAKE2 Exchange (Client)
-03-31 01:22:45.248 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Sending SPAKE2 Exchange: Type=0, Len=32
-03-31 01:22:45.250 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Sent AOSP PairingPacket: Type=0, Len=32
-03-31 01:22:45.251 28515 28515 I flutter : [01:22:45] [RUST:INFO] Step 2/5: Waiting for SPAKE2 Exchange (Server)
-03-31 01:22:45.252 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] TLP header byte[0] = 0x01
-03-31 01:22:45.253 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] TLP header byte[1] = 0x00
-03-31 01:22:45.254 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] TLP header byte[2] = 0x00
-03-31 01:22:45.256 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] TLP header byte[3] = 0x00
-03-31 01:22:45.257 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] TLP header byte[4] = 0x00
-03-31 01:22:45.258 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] TLP header byte[5] = 0x20
-03-31 01:22:45.259 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Full TLP header: 010000000020
-03-31 01:22:45.261 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Received AOSP PairingPacket: Type=0, Len=32
-03-31 01:22:45.262 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Received MSG2 payload length: 32
-03-31 01:22:45.263 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] MSG2 payload raw: b37b521d24b6a4be5075835d84b453faeb46438fe482eab3e592f4b3651195ad
-03-31 01:22:45.264 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Prepend peer prefix 66 to MSG2 payload
-03-31 01:22:45.265 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] SPAKE2 shared secret generated, length: 32
-03-31 01:22:45.267 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Shared secret: 708963140fc2a8a615744cbb5f801258cdc0741b9c4c626f47ba09af2bc81887
-03-31 01:22:45.268 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Deriving keys: shared_secret_len=32 bytes
-03-31 01:22:45.269 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Kc: 13da46dfcd79ab441150e3b0c1daa3d7f7cbea3671ff984fd172cec87d8a25b8
-03-31 01:22:45.271 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Ks: c61eecdd10f67979af46fb53b58a1da924dee07a6a52ba5c7dc5b95254504922
-03-31 01:22:45.272 28515 28515 I flutter : [01:22:45] [RUST:INFO] Step 3/6: Sending HMAC Confirmation (Client)
-03-31 01:22:45.273 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Computed MSG3 confirmation HMAC: eadf49c660ec68bd2722886fb74317873906737f73249222f7671519fff8949e
-03-31 01:22:45.274 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Sending SPAKE2 Confirmation message: Type=0, Len=32
-03-31 01:22:45.274 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Sent AOSP PairingPacket: Type=0, Len=32
-03-31 01:22:45.276 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] MSG3 sent successfully
-03-31 01:22:45.277 28515 28515 I flutter : [01:22:45] [RUST:INFO] Step 4/6: Waiting for server response
-03-31 01:22:45.278 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] TLP header byte[0] = 0x01
-03-31 01:22:45.279 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] TLP header byte[1] = 0x01
-03-31 01:22:45.281 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] TLP header byte[2] = 0x00
-03-31 01:22:45.282 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] TLP header byte[3] = 0x00
-03-31 01:22:45.283 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] TLP header byte[4] = 0x20
-03-31 01:22:45.284 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] TLP header byte[5] = 0x10
-03-31 01:22:45.285 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Full TLP header: 010100002010
-03-31 01:22:45.286 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Received AOSP PairingPacket: Type=1, Len=8208
-03-31 01:22:45.287 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Received PeerInfo directly after client confirmation
-03-31 01:22:45.289 28515 28515 I flutter : [01:22:45] [RUST:DEBUG] Decryption with Ks failed (AES-GCM decryption failed - check keys), trying Kc as fallback...
+04-03 02:49:06.868  9502 13359 I flutter : [IMPORTANT:flutter/shell/platform/android/android_context_vk_impeller.cc(62)] Using the Impeller rendering backend (Vulkan).
+04-03 02:49:07.023  9502 13388 I flutter : The Dart VM service is listening on http://127.0.0.1:34893/nyQ8LPFN6Rk=/
+04-03 02:49:08.994  9502  9502 I flutter : [02:49:08] [STELLAR_RUST_X25519] Bridge: Aliran log telah tersambung ke Dart.
+04-03 02:49:11.711  9502  9502 I flutter : [02:49:11] DART: Memulai mDNS discovery untuk _adb-tls-pairing._tcp
+04-03 02:49:17.771  9502  9502 I flutter : [02:49:17] DART: Layanan ditemukan: adb-7pgqlndalbscukg6-617mqw pada port 39449
+04-03 02:49:17.873  9502  9502 I flutter : [02:49:17] DART: Discovery selesai. Port 39449 siap. Menunggu input user...
+04-03 02:49:28.493  9502 13587 I flutter : [IMPORTANT:flutter/shell/platform/android/android_context_vk_impeller.cc(62)] Using the Impeller rendering backend (Vulkan).
+04-03 02:49:29.565  9502  9502 I flutter : DART BG: lookup isolate...
+04-03 02:49:29.571  9502  9502 I flutter : DART BG: payload = 39449
+04-03 02:49:29.572  9502  9502 I flutter : DART BG: input = 659894
+04-03 02:49:29.574  9502  9502 I flutter : DART BG: sendPort = SendPort
+04-03 02:49:29.576  9502  9502 I flutter : DART: Background Isolate mengirim data ke Main Isolate...
+04-03 02:49:29.588  9502  9502 I flutter : [02:49:29] DART: Memanggil Rust init_pairing(port: 39449, code: 659894)
+04-03 02:49:29.596  9502  9502 I flutter : [02:49:29] [STELLAR_RUST_X25519] Memulai proses pairing X25519 pada 127.0.0.1:39449
+04-03 02:49:29.867  9502  9502 I flutter : [02:49:29] [STELLAR_RUST_X25519] TLS X25519 OK
+04-03 02:49:29.869  9502  9502 I flutter : [02:49:29] [STELLAR_RUST_X25519] DEBUG: Panjang PIN: 6 bytes
+04-03 02:49:29.871  9502  9502 I flutter : [02:49:29] [STELLAR_RUST_X25519] DEBUG: Panjang EKM: 64 bytes
+04-03 02:49:29.872  9502  9502 I flutter : [02:49:29] [STELLAR_RUST_X25519] DEBUG: Total Password Byte (Hex): 3635393839349ad1107b44fac44cbf49f46f249cced40f5778c53832bb7a79e4fe037fb2b6051d02f0fb37f8146e4903472f65ebf3f67d92b6be833fe4adcf34aed06f78793b
+04-03 02:49:29.874  9502  9502 I flutter : [02:49:29] [STELLAR_RUST_X25519] [STEP 2/3] SPAKE2 Exchange...
+04-03 02:49:29.876  9502  9502 I flutter : [02:49:29] [STELLAR_RUST_X25519] DEBUG SPAKE2: Memulai dekompresi titik M dan N
+04-03 02:49:29.877  9502  9502 I flutter : [02:49:29] [STELLAR_RUST_X25519] DEBUG SPAKE2: Titik M dan N berhasil didekompresi
+04-03 02:49:29.879  9502  9502 I flutter : [02:49:29] [STELLAR_RUST_X25519] DEBUG SPAKE2: MSG1 (outbound) hex: e30793c5961fc1719cfe88c0cdae1a199c53e2d998a9e30fbcf715d7ec3e0d58
+04-03 02:49:29.880  9502  9502 I flutter : [02:49:29] [STELLAR_RUST_X25519] [STEP 2/3] MSG1 Terkirim. Menunggu MSG2 (Y*) dari Android...
+04-03 02:49:29.882  9502  9502 I flutter : [02:49:29] [STELLAR_RUST_X25519] DEBUG ADB MSG: Terma Header [type: 0, len: 32], hex: 010000000020
+04-03 02:49:29.883  9502  9502 I flutter : [02:49:29] [STELLAR_RUST_X25519] DEBUG SPAKE2: MSG2 (inbound/Y*) hex: d9f8df69374d9b12f349d5836ac797fac958765eca54b66889d79e52aebbb23f
+04-03 02:49:29.885  9502  9502 I flutter : [02:49:29] [STELLAR_RUST_X25519] DEBUG SPAKE2: Z Point (compressed) hex: a70de763f0220a973f036ae8a6081399e13bf9511b7a036b6f08d3f1163faafc
+04-03 02:49:29.887  9502  9502 I flutter : [02:49:29] [STELLAR_RUST_X25519] DEBUG SPAKE2: Transcript Hash (Salt) hex: a6ddc54d06172565c75aebb5dec7f4ecf5f6da33c128342183a6b1296b477dee
+04-03 02:49:29.888  9502  9502 I flutter : [02:49:29] [STELLAR_RUST_X25519] DEBUG SPAKE2: Shared Secret (first 16 bytes) hex: 02e2f33b4e01e97d33d0aebcf7a7d335
+04-03 02:49:29.889  9502  9502 I flutter : [02:49:29] [STELLAR_RUST_X25519] [STEP 3/3] SPAKE2 Exchange Berhasil!
+04-03 02:49:29.891  9502  9502 I flutter : [02:49:29] [STELLAR_RUST_X25519] SPAKE2 X25519 OK
+04-03 02:49:29.892  9502  9502 I flutter : [02:49:29] [STELLAR_RUST_X25519] [STEP 3/3] PeerInfo Exchange...
 
-Error: AnyhowException(AES-GCM decryption failed with both keys. Shared secret or HKDF info mismatch.)
+Error AnyhowException(Unknown BoringSSL Error)
