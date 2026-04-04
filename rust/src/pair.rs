@@ -277,7 +277,7 @@ where S: AsyncReadExt + AsyncWriteExt + Unpin {
         
         let mut data_payload = Vec::new();
         data_payload.extend_from_slice(pub_key_base64.as_bytes());
-        data_payload.extend_from_slice(b" Stellar@Stellar\0");
+        data_payload.extend_from_slice(b" stellar@android\0");
         
         let copy_len = std::cmp::min(data_payload.len(), 8191);
         info[1..1+copy_len].copy_from_slice(&data_payload[..copy_len]);
