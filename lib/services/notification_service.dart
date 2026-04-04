@@ -61,12 +61,11 @@ class NotificationService {
   /// Menampilkan notifikasi panduan awal (Ongoing).
   static Future<void> showGuide() async {
     const androidDetails = AndroidNotificationDetails(
-      'stellar_guide_channel',
-      'Petunjuk Pairing',
-      channelDescription: 'Langkah-langkah untuk melakukan pairing Wireless ADB',
-      importance: Importance.high,
+      'stellar_main_channel',
+      'Pairing Status',
+      channelDescription: 'Status proses pairing Wireless ADB',
+      importance: Importance.low, // Lebih tenang saat mencari
       priority: Priority.high,
-      color: Color(0xFF673AB7),
       showWhen: false,
       category: AndroidNotificationCategory.reminder,
       ongoing: true,
@@ -74,8 +73,8 @@ class NotificationService {
 
     await _plugin.show(
       1,
-      'Mencari Layanan Pairing...',
-      'Buka Developer Options > Wireless Debugging > Pair device with pairing code',
+      'Searching...',
+      'Please open Wireless Debugging settings.',
       const NotificationDetails(android: androidDetails),
     );
   }
@@ -83,12 +82,11 @@ class NotificationService {
   /// Menampilkan notifikasi input kode setelah port ditemukan.
   static Future<void> showPairingInput(int port) async {
     final androidDetails = AndroidNotificationDetails(
-      'stellar_pairing_channel',
-      'ADB Pairing Status',
-      channelDescription: 'Notifikasi untuk input kode pairing Wireless ADB',
+      'stellar_main_channel',
+      'Pairing Status',
+      channelDescription: 'Status proses pairing Wireless ADB',
       importance: Importance.max,
       priority: Priority.high,
-      color: const Color(0xFF673AB7),
       showWhen: false,
       onlyAlertOnce: true,
       category: AndroidNotificationCategory.status,
@@ -96,7 +94,7 @@ class NotificationService {
       actions: [
         const AndroidNotificationAction(
           'enter_code',
-          'INPUT KODE',
+          'Pair Now',
           inputs: [AndroidNotificationActionInput(label: '6-digit pairing code')],
         ),
       ],
@@ -104,8 +102,8 @@ class NotificationService {
 
     await _plugin.show(
       0,
-      'Layanan Ditemukan!',
-      'Silakan masukkan kode pairing untuk melanjutkan.',
+      'Ready to Pair',
+      'Enter the code from system settings.',
       NotificationDetails(android: androidDetails),
       payload: port.toString(),
     );
@@ -114,21 +112,20 @@ class NotificationService {
   /// Menampilkan notifikasi sukses pairing yang bisa di-swipe.
   static Future<void> showSuccess() async {
     const androidDetails = AndroidNotificationDetails(
-      'stellar_success_channel',
-      'Pairing Berhasil',
-      channelDescription: 'Notifikasi saat pairing Wireless ADB berhasil',
+      'stellar_main_channel',
+      'Pairing Status',
+      channelDescription: 'Status proses pairing Wireless ADB',
       importance: Importance.high,
       priority: Priority.high,
-      color: Color(0xFF4CAF50), // Warna hijau sukses
-      showWhen: true,
+      showWhen: false,
       category: AndroidNotificationCategory.status,
       ongoing: false, // Bisa di-swipe oleh user
     );
 
     await _plugin.show(
       2, // ID berbeda agar tidak menimpa yang sedang berjalan jika ada
-      'Pairing Berhasil!',
-      'Perangkat Anda telah tersambung via Stellar.',
+      'Success',
+      'Device paired successfully.',
       const NotificationDetails(android: androidDetails),
     );
   }
