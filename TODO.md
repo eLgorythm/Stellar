@@ -181,8 +181,13 @@ pub fn encode_rsa_publickey(public_key: boring::rsa::Rsa<boring::pkey::Public>) 
     tmp = n0inv.to_owned()?;
     n0inv.checked_sub(r32.as_ref(), tmp.as_mut())?;
 
-    // This is hacky.....
-    key_struct.write_u32(n0inv.to_dec_str().unwrap().parse::<u32>().unwrap());
+    // Convert n0inv to u32 safely (take only the lower 32 bits)
+    let n0inv_bytes = n0inv.to_vec();
+    let mut n0inv_u32_bytes = [0u8; 4];
+    let copy_len = std::cmp::min(n0inv_bytes.len(), 4);
+    n0inv_u32_bytes[4 - copy_len..].copy_from_slice(&n0inv_bytes[n0inv_bytes.len() - copy_len..]);
+    let n0inv_val = u32::from_be_bytes(n0inv_u32_bytes);
+    key_struct.write_u32(n0inv_val);
 
     key_struct.write(big_endian_to_little_endian_padded(
         ANDROID_PUBKEY_MODULUS_SIZE as usize,
@@ -320,42 +325,35 @@ pub async fn pair(port: String, code: String, data_folder: String) -> Result<boo
             bail!(err)
         }
     };
-
-    let encrypt_iv: i64 = 0;
-
-    let mut iv_bytes = bytebuffer::ByteBuffer::new();
-    iv_bytes.resize(12);
-    iv_bytes.set_endian(bytebuffer::Endian::LittleEndian);
-    iv_bytes.write_i64(encrypt_iv);
-
-    let iv = iv_bytes.as_bytes();
+    
+    let mut secret_iv = [0u8; 12];
+    hkdf::Hkdf::<sha2::Sha256>::new(None, bob_key.as_ref())
+        .expand(b"adb pairing_auth aes-128-gcm iv", &mut secret_iv)
+        .map_err(|e| anyhow!("Failed to derive IV: {}", e))?;
 
     debug!("Create encrypt crypter");
     let mut crypter = boring::symm::Crypter::new(
         boring::symm::Cipher::aes_128_gcm(),
         boring::symm::Mode::Encrypt,
-        secret_key.as_ref(),
-        Some(iv)).with_context(|| format!("Create encrypt crypter"))?;
+        &secret_key,
+        Some(&secret_iv)).with_context(|| format!("Create encrypt crypter"))?;
     debug!("Encrypt crypter created");
 
     debug!("Generate PeerInfo");
     let mut peerinfo = bytebuffer::ByteBuffer::new();
-    peerinfo.resize(MAX_PEER_INFO_SIZE as usize);
     peerinfo.set_endian(bytebuffer::Endian::BigEndian);
-
-    peerinfo.write_u8(0);
-    peerinfo.write(encode_rsa_publickey_with_name(x509.unwrap().public_key().unwrap().rsa().unwrap()).unwrap().as_slice()).with_context(|| format!("Write peerinfo data"))?;
+    
+    let rsa_pub = encode_rsa_publickey_with_name(x509.unwrap().public_key().unwrap().rsa().unwrap())?;
+    peerinfo.write(rsa_pub.as_slice())?;
     debug!("PeerInfo Generated");
 
     debug!("Update Crypter");
-    let mut encrypted = vec![0u8; peerinfo.as_bytes().len()];
-    crypter.update(peerinfo.as_bytes(), encrypted.as_mut_slice()).with_context(|| format!("Update encrypt crypter"))?;
+    let plaintext = peerinfo.into_vec();
+    let mut encrypted = vec![0u8; plaintext.len()];
+    crypter.update(&plaintext, encrypted.as_mut_slice()).with_context(|| format!("Update encrypt crypter"))?;
     debug!("Crypter Updated");
-    let fin = crypter.finalize(encrypted.as_mut_slice()).with_context(|| format!("Finalize encrypt crypter"))?;
-    if fin != 0 {
-        debug!("Finalize error");
-        return Err(anyhow!("Finalize error"));
-    }
+
+    crypter.finalize(&mut []).with_context(|| format!("Finalize encrypt crypter"))?;
 
     let mut encryption_tag = vec![0u8; 16];
     crypter.get_tag(encryption_tag.as_mut_slice()).with_context(|| format!("Get encrypt tag"))?;
@@ -388,37 +386,21 @@ pub async fn pair(port: String, code: String, data_folder: String) -> Result<boo
     let encrypted = payload_raw[0..payload_length as usize - 16].to_vec();
     let encrypted_tag = payload_raw[payload_length as usize - 16..payload_length as usize].to_vec();
 
-    let decrypt_iv: i64 = 0;
-    let mut iv_bytes = bytebuffer::ByteBuffer::new();
-    iv_bytes.resize(12);
-    iv_bytes.set_endian(bytebuffer::Endian::LittleEndian);
-    iv_bytes.write_i64(decrypt_iv);
-
-    let iv = iv_bytes.as_bytes();
-
     debug!("Create decrypt crypter");
     let mut crypter = boring::symm::Crypter::new(
         boring::symm::Cipher::aes_128_gcm(),
         boring::symm::Mode::Decrypt,
-        secret_key.as_ref(),
-        Some(iv)).with_context(|| format!("Create decrypt crypter"))?;
+        &secret_key,
+        Some(&secret_iv)).with_context(|| format!("Create decrypt crypter"))?;
     debug!("Decrypt crypter created");
-
-    // debug!("Encrypted: {:?}",boring::base64::encode_block(encrypted.as_slice()));
-    // debug!("Tag: {:?}",boring::base64::encode_block(encrypted_tag.as_slice()));
-    // debug!("Key: {:?}", boring::base64::encode_block(secret_key.as_ref()));
-    // debug!("IV: {:?}", boring::base64::encode_block(iv));
 
     debug!("Update crypter");
     let mut decrypted = vec![0u8; (payload_length - 16) as usize];
     crypter.set_tag(encrypted_tag.as_ref()).with_context(|| format!("Set decrypt tag"))?;
     crypter.update((encrypted).as_slice(), decrypted.as_mut_slice()).with_context(|| format!("Update decrypt crypter"))?;
     debug!("Crypter updated");
-    let fin = crypter.finalize(decrypted.as_mut_slice()).with_context(|| format!("Finalize decrypt crypter"))?;
-    if fin != 0 {
-        debug!("Finalize error");
-        return Err(anyhow!("Finalize error"));
-    }
+    // finalize will fail here if the shared_secret from SPAKE2 was incorrect (tag mismatch)
+    crypter.finalize(&mut []).with_context(|| format!("Finalize decrypt crypter - Authentication Failed"))?;
 
     debug!("All process done, peerinfo is {:?}", String::from_utf8(decrypted)?.trim_matches(char::from(0)));
     Ok(true)

@@ -11,6 +11,8 @@ https://raw.githubusercontent.com/google/boringssl/refs/heads/main/rust/bssl-cry
 https://raw.githubusercontent.com/google/boringssl/refs/heads/main/rust/bssl-crypto/src/ecdsa.rs
 https://raw.githubusercontent.com/google/boringssl/refs/heads/main/rust/bssl-crypto/src/ecdh.rs
 https://raw.githubusercontent.com/google/boringssl/refs/heads/main/rust/bssl-crypto/src/pkcs8.rs
+https://raw.githubusercontent.com/google/boringssl/refs/heads/main/rust/bssl-crypto/src/scoped.rs
+https://raw.githubusercontent.com/google/boringssl/refs/heads/main/rust/bssl-crypto/src/hpke.rs
 
 https://raw.githubusercontent.com/google/boringssl/refs/heads/main/crypto/curve25519/curve25519_tables.h
 https://raw.githubusercontent.com/google/boringssl/refs/heads/main/crypto/curve25519/curve25519.cc
@@ -21,3 +23,4 @@ https://raw.githubusercontent.com/google/boringssl/refs/heads/main/crypto/x509/x
 https://raw.githubusercontent.com/google/boringssl/refs/heads/main/crypto/x509/x_x509.cc
 https://raw.githubusercontent.com/google/boringssl/refs/heads/main/crypto/x509/x_pubkey.cc
 https://raw.githubusercontent.com/google/boringssl/refs/heads/main/crypto/digest/digest_extra.cc
+https://raw.githubusercontent.com/google/boringssl/refs/heads/main/crypto/base64/base64.cc

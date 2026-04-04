@@ -14,32 +14,49 @@ use boring::bn::BigNum;
 use once_cell::sync::Lazy;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use boring::symm::{Cipher, Crypter, Mode};
-use curve25519_dalek::{
-    scalar::Scalar,
-    edwards::{EdwardsPoint, CompressedEdwardsY}
-};
-use sha2::{Digest, Sha256};
+use sha2::Sha256;
 
 static GLOBAL_SINK: Lazy<Mutex<Option<StreamSink<String>>>> = Lazy::new(|| Mutex::new(None));
 
-// Konstanta sesuai referensi BoringSSL/AOSP (Tanpa Null Terminator)
-const EXPORTED_KEY_LABEL: &str = "adb-label";
-pub const CLIENT_NAME: &str = "adb pair client\0";
-pub const SERVER_NAME: &str = "adb pair server\0";
-
-// Konstanta M dan N dari BoringSSL (Format Little-Endian murni)
-const M_POINT_LE: [u8; 32] = [
-    0x2e, 0xd1, 0xee, 0x88, 0x1b, 0x44, 0xcf, 0xcf, 0x53, 0x8f, 0x47, 0xa3, 0x47, 0xe3, 0xa1, 0x51,
-    0x5c, 0x6b, 0x1c, 0x13, 0x32, 0x6d, 0x62, 0xb6, 0xad, 0xdd, 0xd9, 0xf6, 0x4b, 0x7e, 0xda, 0x5a,
-];
-
-const N_POINT_LE: [u8; 32] = [
-    0x78, 0xc7, 0x3b, 0x69, 0x11, 0x9a, 0x32, 0x71, 0x0d, 0x68, 0xaf, 0x06, 0xbd, 0xdc, 0xbd, 0x3d,
-    0x10, 0x72, 0x46, 0xb4, 0x74, 0xfe, 0xb5, 0x99, 0x7a, 0x8e, 0x7d, 0xe3, 0x0a, 0xdf, 0xe3, 0x10,
-];
+// Konstanta sesuai referensi AOSP pairing_auth.cpp. 
+// AOSP menggunakan sizeof() yang menyertakan null terminator untuk identitas SPAKE2.
+// Dan ExportKeyingMaterial label juga menyertakan null terminator.
+const EXPORTED_KEY_LABEL: &str = "adb-label\0";
+pub const CLIENT_NAME: &[u8] = b"adb pair client\0";
+pub const SERVER_NAME: &[u8] = b"adb pair server\0";
 
 const MSG_TYPE_SPAKE2: u8 = 0;
 const MSG_TYPE_PEER_INFO: u8 = 1;
+const MAX_PEER_INFO_SIZE: usize = 8192;
+
+// --- BoringSSL SPAKE2 FFI Bindings ---
+#[repr(C)]
+struct SPAKE2_CTX { _private: [u8; 0] }
+
+extern "C" {
+    fn SPAKE2_CTX_new(
+        role: i32,
+        my_name: *const u8, my_name_len: usize,
+        peer_name: *const u8, peer_name_len: usize,
+    ) -> *mut SPAKE2_CTX;
+    fn SPAKE2_CTX_free(ctx: *mut SPAKE2_CTX);
+    fn SPAKE2_generate_msg(
+        ctx: *mut SPAKE2_CTX, out: *mut u8, out_len: *mut usize, max_out: usize,
+        password: *const u8, password_len: usize,
+    ) -> i32;
+    fn SPAKE2_process_msg(
+        ctx: *mut SPAKE2_CTX, out: *mut u8, out_len: *mut usize, max_out: usize,
+        inbound: *const u8, inbound_len: usize,
+    ) -> i32;
+}
+
+struct SpakeGuard(*mut SPAKE2_CTX);
+unsafe impl Send for SpakeGuard {}
+impl Drop for SpakeGuard {
+    fn drop(&mut self) {
+        unsafe { SPAKE2_CTX_free(self.0) }
+    }
+}
 
 struct BridgeLogger;
 
@@ -67,7 +84,7 @@ pub async fn init_pairing(port: u16, pairing_code: String) -> Result<String> {
     let mut tls_stream = setup_tls(port).await?;
     info!("TLS X25519 OK");
 
-    // 2. Export Keying Material (EKM) - Penting untuk keamanan SPAKE2 di ADB
+    // 2. Export Keying Material (EKM) - AOSP menggunakan 64 bytes
     let mut exported_key_material = [0u8; 64];
     tls_stream.ssl().export_keying_material(&mut exported_key_material, EXPORTED_KEY_LABEL, None)
         .context("Gagal mengekspor material kunci TLS")?;
@@ -84,12 +101,15 @@ pub async fn init_pairing(port: u16, pairing_code: String) -> Result<String> {
     info!("DEBUG: Panjang EKM: {} bytes", exported_key_material.len());
     info!("DEBUG: Total Password Byte (Hex): {}", hex::encode(&password));
 
-    // 4. SPAKE2 Exchange
+    // 4. SPAKE2 Exchange (MSG1 & MSG2)
     info!("[STEP 2/3] SPAKE2 Exchange...");
-    let shared_key = spake2_exchange(&mut tls_stream, &password).await?;
-    info!("SPAKE2 X25519 OK");
+    let (shared_key, msg1_bytes, msg2_bytes) = spake2_exchange(&mut tls_stream, &password).await?;
+    
+    // 5. Konfirmasi Kunci (MSG3) DIHAPUS - Tidak ada dalam pairing_connection.cpp AOSP
+    // send_auth_confirmation(...) -> Server akan reset koneksi jika menerima data tak terduga di sini.
+    info!("SPAKE2 Exchange OK");
 
-    // 5. PeerInfo Exchange (AES-128-GCM)
+    // 6. PeerInfo Exchange (AES-128-GCM)
     info!("[STEP 3/3] PeerInfo Exchange...");
     peer_info_exchange(&mut tls_stream, &shared_key).await?;
     info!("PAIRING COMPLETE X25519!");
@@ -100,13 +120,14 @@ pub async fn init_pairing(port: u16, pairing_code: String) -> Result<String> {
 async fn setup_tls(port: u16) -> Result<tokio_boring::SslStream<TcpStream>> {
     let (cert, pkey) = generate_self_signed_cert()?;
     let mut connector = SslConnector::builder(SslMethod::tls())?;
-    connector.set_verify(SslVerifyMode::NONE);
+    connector.set_verify(SslVerifyMode::PEER);
     connector.set_certificate(&cert)?;
     connector.set_private_key(&pkey)?;
 
     let stream = TcpStream::connect(format!("127.0.0.1:{}", port)).await?;
     let mut config = connector.build().configure()?;
     config.set_verify_hostname(false);
+    config.set_verify_callback(SslVerifyMode::PEER, |_, _| true);
     
     tokio_boring::connect(config, "localhost", stream).await
         .context("TLS connection failed")
@@ -152,129 +173,173 @@ where S: AsyncReadExt + AsyncWriteExt + Unpin {
     Ok((msg_type, payload))
 }
 
-async fn spake2_exchange<S>(stream: &mut S, password: &[u8]) -> Result<Vec<u8>> 
+async fn spake2_exchange<S>(stream: &mut S, password: &[u8]) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>)> 
 where S: tokio::io::AsyncReadExt + tokio::io::AsyncWriteExt + Unpin {
-    // 1. Persiapan Titik M dan N
-    info!("DEBUG SPAKE2: Memulai dekompresi titik M dan N");
-    let m_point = CompressedEdwardsY(M_POINT_LE)
-        .decompress()
-        .ok_or_else(|| anyhow!("M_POINT tidak valid"))?;
-    let n_point = CompressedEdwardsY(N_POINT_LE)
-        .decompress()
-        .ok_or_else(|| anyhow!("N_POINT tidak valid"))?;
-    info!("DEBUG SPAKE2: Titik M dan N berhasil didekompresi");
+    // 1. Inisialisasi Context via FFI (Role Alice = 0) di dalam wrapper Send
+    let guard = unsafe {
+        let p = SPAKE2_CTX_new(
+            0, 
+            CLIENT_NAME.as_ptr(), CLIENT_NAME.len(),
+            SERVER_NAME.as_ptr(), SERVER_NAME.len()
+        );
+        if p.is_null() { return Err(anyhow!("Gagal membuat SPAKE2_CTX via FFI")); }
+        SpakeGuard(p)
+    };
 
-    // 2. Generate Ephemeral Key (x) dan Scalar Password (w)
-    let x_scalar = Scalar::random(&mut rand::thread_rng());
-    let w_hash = Sha256::digest(password);
-    let w_scalar = Scalar::from_bytes_mod_order(w_hash.into());
+    // 2. Generate MSG1 (Outbound)
+    let mut msg1_bytes = vec![0u8; 32];
+    let mut out_len = 0;
+    let res = unsafe {
+        SPAKE2_generate_msg(guard.0, msg1_bytes.as_mut_ptr(), &mut out_len, 32, password.as_ptr(), password.len())
+    };
+    if res != 1 { return Err(anyhow!("FFI: SPAKE2_generate_msg gagal")); }
 
-    // 3. STEP 1: Kirim MSG1 = xG + wM
-    let msg1_point = EdwardsPoint::mul_base(&x_scalar) + (m_point * w_scalar);
-    let msg1_bytes = msg1_point.compress().0; // ADB SPAKE2 menggunakan Compressed Edwards Y
     info!("DEBUG SPAKE2: MSG1 (outbound) hex: {}", hex::encode(&msg1_bytes));
-
     write_adb_msg(stream, MSG_TYPE_SPAKE2, &msg1_bytes).await?;
-    info!("[STEP 2/3] MSG1 Terkirim. Menunggu MSG2 (Y*) dari Android...");
 
-    // 4. STEP 2: Terima Respon MSG2 (Y*)
+    // 3. Baca MSG2 (Inbound)
     let (msg_type, inbound) = read_adb_msg_debug(stream).await?;
     if msg_type != MSG_TYPE_SPAKE2 {
         return Err(anyhow!("Tipe pesan salah: {}, harap SPAKE2", msg_type));
     }
-    let y_star_bytes: [u8; 32] = inbound.try_into().map_err(|_| anyhow!("Invalid Y* length"))?;
-
-    // 5. STEP 3: Hitung Shared Secret Z = x(Y* - wN)
-    // Android mengirim Compressed Edwards Y
-    let y_star_edwards = CompressedEdwardsY(y_star_bytes)
-        .decompress()
-        .ok_or_else(|| anyhow!("Y* dari Android tidak valid sebagai titik Edwards"))?;
-    info!("DEBUG SPAKE2: MSG2 (inbound/Y*) hex: {}", hex::encode(&y_star_bytes));
-
-    let z_point = (y_star_edwards - (n_point * w_scalar)) * x_scalar;
-    let z_compressed_bytes = z_point.compress().0; // Ini adalah IKM untuk HKDF
-    info!("DEBUG SPAKE2: Z Point (compressed) hex: {}", hex::encode(&z_compressed_bytes));
-
-    // Hitung Transcript Hash (Sesuai Spesifikasi BoringSSL Ed25519)
-    let mut transcript_hasher = Sha256::new();
     
-    // Preamble di-hash langsung tanpa panjang (Sesuai BoringSSL spake25519.cc)
-    transcript_hasher.update(b"SPAKE2-Ed25519-Sha256-Transcript");
-    
-    // IdA, IdB, X, dan Y masing-masing diawali panjangnya (u64 Little Endian)
-    for item in &[CLIENT_NAME.as_bytes(), SERVER_NAME.as_bytes(), &msg1_bytes, &y_star_bytes] {
-        transcript_hasher.update(&(item.len() as u64).to_le_bytes());
-        transcript_hasher.update(item);
+    // 4. Proses MSG2 untuk mendapatkan Shared Key (64 bytes)
+    let mut shared_key = vec![0u8; 64];
+    let mut key_len = 0;
+    let res = unsafe {
+        SPAKE2_process_msg(guard.0, shared_key.as_mut_ptr(), &mut key_len, 64, inbound.as_ptr(), inbound.len())
+    };
+
+    if res != 1 {
+        return Err(crate::boring_helper::detailed_boring_error("FFI: SPAKE2_process_msg gagal (PIN salah atau Transcript mismatch)"));
     }
-    
-    let transcript_hash = transcript_hasher.finalize(); // Ini adalah salt
-    info!("DEBUG SPAKE2: Transcript Hash (Salt) hex: {}", hex::encode(&transcript_hash));
 
-    // Derivasi Shared Secret menggunakan HKDF-SHA256 (Label Ed25519)
-    let mut shared_secret = vec![0u8; 32];
-    hkdf::Hkdf::<Sha256>::new(Some(transcript_hash.as_ref()), z_compressed_bytes.as_ref())
-        .expand(b"SPAKE2-Ed25519-Sha256-HKDF", &mut shared_secret)
-        .map_err(|e| anyhow!("HKDF untuk shared secret gagal: {:?}", e))?;
-    info!("DEBUG SPAKE2: Shared Secret (first 16 bytes) hex: {}", hex::encode(&shared_secret[..16]));
-
+    let y_star_bytes = inbound.to_vec();
+    info!("DEBUG SPAKE2: Shared Key (Final Hash) hex: {}", hex::encode(&shared_key));
     info!("[STEP 3/3] SPAKE2 Exchange Berhasil!");
-    Ok(shared_secret)
+    Ok((shared_key, msg1_bytes, y_star_bytes))
+}
+
+async fn send_auth_confirmation<S>(stream: &mut S, shared_secret: &[u8], msg1: &[u8], msg2: &[u8]) -> Result<()>
+where S: AsyncReadExt + AsyncWriteExt + Unpin {
+    // Derivasi kunci konfirmasi
+    let mut kc = [0u8; 32]; 
+
+    // HKDF-SHA256(salt=None, ikm=64_byte_spake2_output)
+    let hk = hkdf::Hkdf::<Sha256>::new(None, shared_secret);
+    hk.expand(b"adb pairing_auth hmac client", &mut kc)
+        .map_err(|_| anyhow!("Gagal derivasi Kc"))?;
+
+    // MSG3: HMAC dihitung langsung di atas msg1 || msg2 (Tanpa SHA256 tambahan)
+    let client_confirmation = {
+        let mut ctx = boring::hmac::Hmac::init(&kc, &MessageDigest::sha256())?;
+        ctx.update(msg1)?;
+        ctx.update(msg2)?;
+        ctx.finalize()?
+    };
+    
+    info!("DEBUG: Client Confirmation (MSG3) hex: {}", hex::encode(&client_confirmation));
+
+    // Kirim MSG3 dan langsung selesaikan tahap auth cleartext
+    write_adb_msg(stream, MSG_TYPE_SPAKE2, &client_confirmation).await
 }
 
 async fn peer_info_exchange<S>(stream: &mut S, shared_key: &[u8]) -> Result<()> 
 where S: AsyncReadExt + AsyncWriteExt + Unpin {
-    // 1. Derivasi kunci AES-128-GCM dari shared key SPAKE2
+    // 1. Derivasi Kunci menggunakan Shared Key dari SPAKE2
+    // HKDF-SHA256(salt=None, ikm=64_byte_spake2_output)
+    let hk = hkdf::Hkdf::<Sha256>::new(None, shared_key);
+
     let mut aes_key = [0u8; 16];
-    hkdf::Hkdf::<Sha256>::new(None, shared_key)
-        .expand(b"adb pairing_auth aes-128-gcm key", &mut aes_key)
-        .map_err(|e| anyhow!("HKDF failed: {:?}", e))?;
+    hk.expand(b"adb pairing_auth aes-128-gcm key", &mut aes_key)
+        .map_err(|_| anyhow!("Gagal ekspansi AES Key"))?;
 
-    // 2. Siapkan PeerInfo (Berisi Public Key RSA Klien)
-    let (cert, _) = generate_self_signed_cert()?;
-    let rsa = cert.public_key()?.rsa()?;
-    let adb_pub_key = encode_rsa_adb_format(&rsa)?;
-    
-    let mut peer_info = vec![0u8]; // ADB PeerInfo starts with version 0
-    peer_info.extend_from_slice(&adb_pub_key);
-    // Metadata: " Ascent@Antagonism\0" atau format "c:name\0"
-    peer_info.extend_from_slice(b"c:stellar\0");
+    // Referensi AOSP (aes-gcm-128.cpp) memulai IV dengan 12-byte nol
+    let mut base_iv = [0u8; 12]; 
 
-    // 3. Enkripsi PeerInfo
-    let iv = [0u8; 12]; // Nonce/IV adalah 0 (i64 little endian) sesuai referensi
-    let mut crypter = Crypter::new(Cipher::aes_128_gcm(), Mode::Encrypt, &aes_key, Some(&iv))?;
-    
-    let mut encrypted = vec![0u8; peer_info.len() + Cipher::aes_128_gcm().block_size()];
-    let count = crypter.update(&peer_info, &mut encrypted)?;
-    let final_count = crypter.finalize(&mut encrypted[count..])?;
-    encrypted.truncate(count + final_count);
-    
-    let mut tag = [0u8; 16];
-    crypter.get_tag(&mut tag)?;
-    encrypted.extend_from_slice(&tag);
+    info!("DEBUG PeerInfo: AES Key: {}", hex::encode(&aes_key));
 
-    // 4. Kirim & Terima PeerInfo
-    write_adb_msg(stream, MSG_TYPE_PEER_INFO, &encrypted).await?;
-    
-    let (msg_type, response) = read_adb_msg(stream).await?;
+    // 2. Siapkan PeerInfo (Sesuai rsa_2048_key.cpp dan adb_wifi.cpp)
+    // Berdasarkan log, PeerInfo berukuran tepat 8192 byte (ciphertext 8192 + tag 16 = 8208)
+    let peer_info = {
+        let (cert, _) = generate_self_signed_cert()?;
+        let rsa = cert.public_key()?.rsa()?;
+        let adb_pub_key = encode_rsa_adb_format(&rsa)?; 
+        
+        let pub_key_base64 = boring::base64::encode_block(&adb_pub_key)
+            .replace(['\n', '\r'], "");
+
+        // PeerInfo Struct di AOSP: 8192 byte total (1 byte type + 8191 byte data)
+        let mut info = vec![0u8; 8192];
+        
+        // Type 0 = ADB_RSA_PUB_KEY (berdasarkan log outbound plaintext 00 40...)
+        info[0] = 0u8; 
+        
+        let mut data_payload = Vec::new();
+        data_payload.extend_from_slice(pub_key_base64.as_bytes());
+        data_payload.extend_from_slice(b" Stellar@Stellar\0");
+        
+        let copy_len = std::cmp::min(data_payload.len(), 8191);
+        info[1..1+copy_len].copy_from_slice(&data_payload[..copy_len]);
+
+        info
+    };
+
+    // 3. Enkripsi & Kirim profil Client (Counter 0)
+    // Sekarang Stellar mengirim profilnya terlebih dahulu sebelum menerima respon.
+    let cipher = Cipher::aes_128_gcm();
+    info!("DEBUG PeerInfo: Plaintext Outbound hex: {}", hex::encode(&peer_info));
+
+    let encrypted_client = {
+        // Gunakan base_iv murni (Counter 0) untuk paket pertama yang dikirim
+        let mut crypter = Crypter::new(cipher, Mode::Encrypt, &aes_key, Some(&base_iv))?;
+        let mut out = vec![0u8; peer_info.len() + 32];
+        let len = crypter.update(&peer_info, &mut out)?;
+        let final_len = crypter.finalize(&mut out[len..])
+            .map_err(|_| crate::boring_helper::detailed_boring_error("Gagal enkripsi PeerInfo Outbound"))?;
+        let mut tag = vec![0u8; 16];
+        crypter.get_tag(&mut tag)?;
+        out.truncate(len + final_len);
+        out.extend_from_slice(&tag);
+        out
+    };
+
+    info!("DEBUG PeerInfo: Ciphertext Outbound hex: {}", hex::encode(&encrypted_client));
+    info!("DEBUG: Sending Encrypted Client PeerInfo (Counter 0)...");
+    write_adb_msg(stream, MSG_TYPE_PEER_INFO, &encrypted_client).await?;
+
+    // 4. Terima & Dekripsi Respon PeerInfo dari Android (Counter 0 Inbound)
+    let (msg_type, response) = read_adb_msg_debug(stream).await?;
     if msg_type != MSG_TYPE_PEER_INFO {
-        return Err(anyhow!("Gagal menerima respon PeerInfo dari Android"));
+        return Err(anyhow!("Expected PEER_INFO (1), got {}", msg_type));
     }
 
-    // 5. Dekripsi Respon PeerInfo
     if response.len() < 16 { return Err(anyhow!("Payload response terlalu pendek")); }
     let (ciphertext, tag) = response.split_at(response.len() - 16);
-    
-    let mut decryptor = Crypter::new(Cipher::aes_128_gcm(), Mode::Decrypt, &aes_key, Some(&iv))?;
-    decryptor.set_tag(tag)?;
-    
-    let mut decrypted = vec![0u8; ciphertext.len() + Cipher::aes_128_gcm().block_size()];
-    let count = decryptor.update(ciphertext, &mut decrypted)?;
-    let final_count = decryptor.finalize(&mut decrypted[count..])?;
-    decrypted.truncate(count + final_count);
 
-    info!("ADB PeerInfo exchange success: {:?}", 
-        String::from_utf8_lossy(&decrypted).trim_matches(char::from(0))
-    );
+    // FIX: Untuk pesan PeerInfo pertama dari Android, counter IV harus 0.
+    // Jangan meng-XOR dengan 1 kecuali ini adalah pesan kedua dalam sesi yang sama.
+    let iv_android = base_iv;
+
+    info!("DEBUG ADB RX: first 32 hex: {}", hex::encode(&ciphertext[..std::cmp::min(ciphertext.len(), 32)]));
+    info!("DEBUG AES: CT len={}, Tag: {}", ciphertext.len(), hex::encode(tag));
+
+    let decrypted = {
+        // Gunakan IV Counter 1 untuk dekripsi balasan dari Android
+        let mut decryptor = Crypter::new(cipher, Mode::Decrypt, &aes_key, Some(&iv_android))?;
+        decryptor.set_tag(&tag)?;
+        let mut out = vec![0u8; ciphertext.len() + 32];
+        let len = decryptor.update(ciphertext, &mut out)?;
+        let final_len = decryptor.finalize(&mut out[len..])
+            .map_err(|_| crate::boring_helper::detailed_boring_error("Gagal verifikasi Tag AES-GCM (Kunci atau IV SPAKE2 salah)"))?;
+        out.truncate(len + final_len);
+        out
+    };
+
+    let peer_info_str = String::from_utf8_lossy(&decrypted)
+        .trim_matches(char::from(0))
+        .to_string();
+    info!("PEERINFO DECRYPT SUKSES: {}", peer_info_str);
     
     Ok(())
 }
@@ -308,13 +373,15 @@ fn encode_rsa_adb_format(rsa: &Rsa<boring::pkey::Public>) -> Result<Vec<u8>> {
     n0_inv_neg.checked_sub(&r32, &n0_inv.as_ref())?;
     
     // Ambil 4 byte terendah untuk n0inv
-    let n0inv_bytes = n0_inv_neg.to_vec();
-    let mut n0inv_val_bytes = [0u8; 4];
-    let copy_len = std::cmp::min(n0inv_bytes.len(), 4);
-    let start = n0inv_bytes.len() - copy_len;
-    n0inv_val_bytes[4-copy_len..].copy_from_slice(&n0inv_bytes[start..]);
-    let n0inv_val = u32::from_be_bytes(n0inv_val_bytes);
+    let n0inv_vec = n0_inv_neg.to_vec();
+    let mut n0inv_bytes = [0u8; 4];
+    let n0_len = n0inv_vec.len();
+    let copy_len = std::cmp::min(n0_len, 4);
+    n0inv_bytes[4 - copy_len..].copy_from_slice(&n0inv_vec[n0_len - copy_len..]);
+    let n0inv_val = u32::from_be_bytes(n0inv_bytes);
     result.extend_from_slice(&n0inv_val.to_le_bytes());
+
+
 
     // 3. Modulus N (Little Endian)
     let mut n_le = n_bytes.clone();
