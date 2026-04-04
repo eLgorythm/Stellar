@@ -142,7 +142,17 @@ class _HomePageState extends State<HomePage> {
       final result = await PairLogic.pair(_activePort!, code);
       setState(() => _status = result);
       _showSnackBar("Pairing Berhasil!");
-      await NotificationService.cancel(0);
+      
+      // 1. Hapus notifikasi input (sticky)
+      await NotificationService.cancel(0); 
+      
+      // 2. Tampilkan notifikasi sukses (swipable)
+      await NotificationService.showSuccess();
+      
+      // 3. Hapus otomatis setelah 5 detik agar tidak menumpuk
+      Future.delayed(const Duration(seconds: 5), () {
+        NotificationService.cancel(2);
+      });
     } catch (e) {
       setState(() => _status = "Error: $e");
     } finally {

@@ -111,6 +111,28 @@ class NotificationService {
     );
   }
 
+  /// Menampilkan notifikasi sukses pairing yang bisa di-swipe.
+  static Future<void> showSuccess() async {
+    const androidDetails = AndroidNotificationDetails(
+      'stellar_success_channel',
+      'Pairing Berhasil',
+      channelDescription: 'Notifikasi saat pairing Wireless ADB berhasil',
+      importance: Importance.high,
+      priority: Priority.high,
+      color: Color(0xFF4CAF50), // Warna hijau sukses
+      showWhen: true,
+      category: AndroidNotificationCategory.status,
+      ongoing: false, // Bisa di-swipe oleh user
+    );
+
+    await _plugin.show(
+      2, // ID berbeda agar tidak menimpa yang sedang berjalan jika ada
+      'Pairing Berhasil!',
+      'Perangkat Anda telah tersambung via Stellar.',
+      const NotificationDetails(android: androidDetails),
+    );
+  }
+
   /// Menghapus notifikasi berdasarkan ID.
   static Future<void> cancel(int id) async => await _plugin.cancel(id);
 
