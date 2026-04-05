@@ -49,7 +49,7 @@ class NotificationService {
     });
 
     // 2. Setup Android Settings
-    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidInit = AndroidInitializationSettings('@mipmap/launcher_icon');
     
     await _plugin.initialize(
       const InitializationSettings(android: androidInit),
@@ -61,11 +61,11 @@ class NotificationService {
   /// Menampilkan notifikasi panduan awal (Ongoing).
   static Future<void> showGuide() async {
     const androidDetails = AndroidNotificationDetails(
-      'stellar_main_channel',
-      'Pairing Status',
+      'stellar_high_priority_channel',
+      'Pairing Alerts',
       channelDescription: 'Status proses pairing Wireless ADB',
-      importance: Importance.low, // Lebih tenang saat mencari
-      priority: Priority.high,
+      importance: Importance.high, // Aktifkan popup
+      priority: Priority.max,
       showWhen: false,
       category: AndroidNotificationCategory.reminder,
       ongoing: true,
@@ -82,11 +82,11 @@ class NotificationService {
   /// Menampilkan notifikasi input kode setelah port ditemukan.
   static Future<void> showPairingInput(int port) async {
     final androidDetails = AndroidNotificationDetails(
-      'stellar_main_channel',
-      'Pairing Status',
+      'stellar_high_priority_channel',
+      'Pairing Alerts',
       channelDescription: 'Status proses pairing Wireless ADB',
       importance: Importance.max,
-      priority: Priority.high,
+      priority: Priority.max,
       showWhen: false,
       onlyAlertOnce: true,
       category: AndroidNotificationCategory.status,
@@ -112,11 +112,11 @@ class NotificationService {
   /// Menampilkan notifikasi sukses pairing yang bisa di-swipe.
   static Future<void> showSuccess() async {
     const androidDetails = AndroidNotificationDetails(
-      'stellar_main_channel',
-      'Pairing Status',
+      'stellar_high_priority_channel',
+      'Pairing Alerts',
       channelDescription: 'Status proses pairing Wireless ADB',
       importance: Importance.high,
-      priority: Priority.high,
+      priority: Priority.max,
       showWhen: false,
       category: AndroidNotificationCategory.status,
       ongoing: false, // Bisa di-swipe oleh user
@@ -132,6 +132,9 @@ class NotificationService {
 
   /// Menghapus notifikasi berdasarkan ID.
   static Future<void> cancel(int id) async => await _plugin.cancel(id);
+
+  /// Menghapus semua notifikasi yang ada.
+  static Future<void> cancelAll() async => await _plugin.cancelAll();
 
   /// Membersihkan resource saat aplikasi ditutup.
   static void dispose() {

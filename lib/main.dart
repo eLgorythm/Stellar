@@ -143,8 +143,8 @@ class _HomePageState extends State<HomePage> {
       setState(() => _status = result);
       _showSnackBar("Pairing Berhasil!");
       
-      // 1. Hapus notifikasi input (sticky)
-      await NotificationService.cancel(0); 
+      // 1. Bersihkan semua notifikasi yang menggantung (Searching/Input)
+      await NotificationService.cancelAll(); 
       
       // 2. Tampilkan notifikasi sukses (swipable)
       await NotificationService.showSuccess();
