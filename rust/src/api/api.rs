@@ -1,4 +1,5 @@
 use crate::pair;
+use crate::connect;
 use crate::frb_generated::StreamSink;
 use log::info;
 
@@ -11,6 +12,6 @@ pub async fn init_pairing(port: u16, pairing_code: String) -> anyhow::Result<Str
     pair::init_pairing(port, pairing_code).await
 }
 
-pub async fn execute_adb_command(command: String) -> anyhow::Result<String> {
-    pair::execute_adb_command(command).await
+pub async fn connect_to_device(addr: String) -> anyhow::Result<String> {
+    connect::connect_to_device(addr).await
 }

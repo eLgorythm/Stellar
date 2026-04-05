@@ -173,7 +173,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> _handleConnect() async {
     setState(() {
       _isLoading = true;
-      _status = "Mencoba menghubungkan...";
+      _status = "Connecting to device...";
     });
 
     try {

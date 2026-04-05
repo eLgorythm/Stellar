@@ -15,5 +15,5 @@ Future<String> initPairing({required int port, required String pairingCode}) =>
       pairingCode: pairingCode,
     );
 
-Future<String> executeAdbCommand({required String command}) =>
-    RustLib.instance.api.crateApiApiExecuteAdbCommand(command: command);
+Future<String> connectToDevice({required String addr}) =>
+    RustLib.instance.api.crateApiApiConnectToDevice(addr: addr);

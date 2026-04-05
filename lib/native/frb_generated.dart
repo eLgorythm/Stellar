@@ -64,7 +64,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.11.1';
 
   @override
-  int get rustContentHash => 2006991571;
+  int get rustContentHash => -2123086995;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -75,9 +75,9 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 }
 
 abstract class RustLibApi extends BaseApi {
-  Stream<String> crateApiApiCreateLogStream();
+  Future<String> crateApiApiConnectToDevice({required String addr});
 
-  Future<String> crateApiApiExecuteAdbCommand({required String command});
+  Stream<String> crateApiApiCreateLogStream();
 
   Future<String> crateApiApiInitPairing({
     required int port,
@@ -94,6 +94,34 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   });
 
   @override
+  Future<String> crateApiApiConnectToDevice({required String addr}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(addr, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 1,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_String,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiApiConnectToDeviceConstMeta,
+        argValues: [addr],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiApiConnectToDeviceConstMeta =>
+      const TaskConstMeta(debugName: "connect_to_device", argNames: ["addr"]);
+
+  @override
   Stream<String> crateApiApiCreateLogStream() {
     final sink = RustStreamSink<String>();
     unawaited(
@@ -105,7 +133,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 1,
+              funcId: 2,
               port: port_,
             );
           },
@@ -124,37 +152,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiApiCreateLogStreamConstMeta =>
       const TaskConstMeta(debugName: "create_log_stream", argNames: ["sink"]);
-
-  @override
-  Future<String> crateApiApiExecuteAdbCommand({required String command}) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(command, serializer);
-          pdeCallFfi(
-            generalizedFrbRustBinding,
-            serializer,
-            funcId: 2,
-            port: port_,
-          );
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
-          decodeErrorData: sse_decode_AnyhowException,
-        ),
-        constMeta: kCrateApiApiExecuteAdbCommandConstMeta,
-        argValues: [command],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiApiExecuteAdbCommandConstMeta =>
-      const TaskConstMeta(
-        debugName: "execute_adb_command",
-        argNames: ["command"],
-      );
 
   @override
   Future<String> crateApiApiInitPairing({

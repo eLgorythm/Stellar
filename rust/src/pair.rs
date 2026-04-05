@@ -13,6 +13,7 @@ use boring::x509::extension::BasicConstraints;
 use boring::bn::BigNum;
 use once_cell::sync::Lazy;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use std::fs;
 use boring::symm::{Cipher, Crypter, Mode};
 use sha2::Sha256;
 
@@ -103,7 +104,7 @@ pub async fn init_pairing(port: u16, pairing_code: String) -> Result<String> {
 
     // 4. SPAKE2 Exchange (MSG1 & MSG2)
     info!("[STEP 2/3] SPAKE2 Exchange...");
-    let (shared_key, msg1_bytes, msg2_bytes) = spake2_exchange(&mut tls_stream, &password).await?;
+    let (shared_key, _msg1_bytes, _msg2_bytes) = spake2_exchange(&mut tls_stream, &password).await?;
     
     // 5. Konfirmasi Kunci (MSG3) DIHAPUS - Tidak ada dalam pairing_connection.cpp AOSP
     // send_auth_confirmation(...) -> Server akan reset koneksi jika menerima data tak terduga di sini.
@@ -255,14 +256,14 @@ where S: AsyncReadExt + AsyncWriteExt + Unpin {
         .map_err(|_| anyhow!("Gagal ekspansi AES Key"))?;
 
     // Referensi AOSP (aes-gcm-128.cpp) memulai IV dengan 12-byte nol
-    let mut base_iv = [0u8; 12]; 
+    let base_iv = [0u8; 12]; 
 
     info!("DEBUG PeerInfo: AES Key: {}", hex::encode(&aes_key));
 
     // 2. Siapkan PeerInfo (Sesuai rsa_2048_key.cpp dan adb_wifi.cpp)
     // Berdasarkan log, PeerInfo berukuran tepat 8192 byte (ciphertext 8192 + tag 16 = 8208)
     let peer_info = {
-        let (cert, _) = generate_self_signed_cert()?;
+        let (cert, _) = get_persistent_cert()?;
         let rsa = cert.public_key()?.rsa()?;
         let adb_pub_key = encode_rsa_adb_format(&rsa)?; 
         
@@ -331,7 +332,7 @@ where S: AsyncReadExt + AsyncWriteExt + Unpin {
         let mut out = vec![0u8; ciphertext.len() + 32];
         let len = decryptor.update(ciphertext, &mut out)?;
         let final_len = decryptor.finalize(&mut out[len..])
-            .map_err(|_| crate::boring_helper::detailed_boring_error("Gagal verifikasi Tag AES-GCM (Kunci atau IV SPAKE2 salah)"))?;
+            .map_err(|_| crate::boring_helper::detailed_boring_error("AES-GCM Tag verification failed (Incorrect SPAKE2 key or IV)"))?;
         out.truncate(len + final_len);
         out
     };
@@ -339,7 +340,7 @@ where S: AsyncReadExt + AsyncWriteExt + Unpin {
     let peer_info_str = String::from_utf8_lossy(&decrypted)
         .trim_matches(char::from(0))
         .to_string();
-    info!("PEERINFO DECRYPT SUKSES: {}", peer_info_str);
+    info!("PEERINFO DECRYPT SUCCESS: {}", peer_info_str);
     
     Ok(())
 }
@@ -351,7 +352,7 @@ fn encode_rsa_adb_format(rsa: &Rsa<boring::pkey::Public>) -> Result<Vec<u8>> {
     
     // ADB mengharapkan modulus 2048-bit (256 bytes)
     if n_bytes.len() > 256 {
-        return Err(anyhow!("Modulus terlalu besar untuk ADB"));
+        return Err(anyhow!("Modulus too large for ADB"));
     }
 
     let mut result = Vec::with_capacity(524);
@@ -406,6 +407,31 @@ fn encode_rsa_adb_format(rsa: &Rsa<boring::pkey::Public>) -> Result<Vec<u8>> {
     Ok(result)
 }
 
+/// Mengambil sertifikat dari penyimpanan internal atau membuatnya jika belum ada.
+/// Ini memastikan kunci yang digunakan saat pairing sama dengan saat koneksi.
+pub(crate) fn get_persistent_cert() -> Result<(X509, PKey<Private>)> {
+    let path = "/data/user/0/labs.oxfnd.stellar/files/adb_cert.pem";
+    
+    if std::path::Path::new(path).exists() {
+        let data = fs::read(path)?;
+        let cert = X509::from_pem(&data)?;
+        let pkey = PKey::private_key_from_pem(&data)?;
+        return Ok((cert, pkey));
+    }
+
+    // Jika belum ada, buat baru (terjadi saat pairing pertama kali)
+    let (cert, pkey) = generate_self_signed_cert()?;
+    let mut pem = cert.to_pem()?;
+    pem.extend_from_slice(&pkey.private_key_to_pem_pkcs8()?);
+    
+    if let Some(parent) = std::path::Path::new(path).parent() {
+        fs::create_dir_all(parent).context("Failed to create storage directory")?;
+    }
+    fs::write(path, pem).context("Failed to write permanent certificate file")?;
+
+    Ok((cert, pkey))
+}
+
 fn generate_self_signed_cert() -> Result<(X509, PKey<Private>)> {
     let rsa = Rsa::generate(2048).context("Failed to generate RSA key")?;
     let pkey = PKey::from_rsa(rsa).context("Failed to create PKey")?;
@@ -433,12 +459,25 @@ fn generate_self_signed_cert() -> Result<(X509, PKey<Private>)> {
     let bc = BasicConstraints::new().ca().build()?;
     builder.append_extension(&bc)?;
 
+    // Tambahkan ekstensi SKID dan AKID (Wajib untuk kompatibilitas TLS Android 13+)
+    let skid = {
+        let ctx = builder.x509v3_context(None, None);
+        boring::x509::extension::SubjectKeyIdentifier::new()
+            .build(&ctx)
+            .context("Failed to build SKID extension")?
+    };
+    builder.append_extension(&skid)?;
+
+    let akid = {
+        let ctx = builder.x509v3_context(None, None);
+        boring::x509::extension::AuthorityKeyIdentifier::new()
+            .keyid(true)
+            .build(&ctx)
+            .context("Failed to build AKID extension")?
+    };
+    builder.append_extension(&akid)?;
+
     builder.sign(&pkey, MessageDigest::sha256())?;
 
     Ok((builder.build(), pkey))
-}
-
-// Dummy async function buat testing
-pub async fn execute_adb_command(command: String) -> Result<String> {
-    Ok(format!("ADB X25519 ready: {}", command))
 }
