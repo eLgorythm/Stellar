@@ -40,7 +40,6 @@ android {
 
     signingConfigs {
         create("release") {
-            // 3. PERBAIKAN SINTAKS: Gunakan toString() dan casting yang benar
             keyAlias = keystoreProperties["keyAlias"].toString()
             keyPassword = keystoreProperties["keyPassword"].toString()
             storePassword = keystoreProperties["storePassword"].toString()
@@ -54,12 +53,10 @@ android {
 
     buildTypes {
         release {
-            // 3. Hubungkan ke signingConfig rilis
             signingConfig = signingConfigs.getByName("release")
-            
-            // Optimasi tambahan (opsional)
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // Optional (opsional)
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

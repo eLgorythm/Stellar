@@ -49,7 +49,7 @@ class NotificationService {
     });
 
     // 2. Setup Android Settings
-    const androidInit = AndroidInitializationSettings('@mipmap/launcher_icon');
+    const androidInit = AndroidInitializationSettings('notification_icon');
     
     await _plugin.initialize(
       const InitializationSettings(android: androidInit),

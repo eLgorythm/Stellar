@@ -12,6 +12,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await RustLib.init();
+  // Set status bar transparan untuk tampilan lebih clean
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(statusBarColor: Colors.transparent));
   runApp(const StellarApp());
 }
 
@@ -24,8 +26,20 @@ class StellarApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        colorSchemeSeed: Colors.deepPurple,
-        brightness: Brightness.light,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF4E61D3),
+          primary: const Color(0xFF4E61D3),
+          secondary: const Color(0xFFCFADC1),
+          tertiary: const Color(0xFFF4F754),
+          surface: const Color(0xFFFBFBFB),
+          surfaceVariant: const Color(0xFFE9D484),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          ),
+        ),
       ),
       home: const HomePage(),
     );
@@ -44,6 +58,9 @@ class _HomePageState extends State<HomePage> {
   String _status = "";
   int? _activePort;
   final ScrollController _logScrollController = ScrollController();
+
+  // Channel untuk memicu intent Android
+  static const platform = MethodChannel('com.stellar.app/settings');
 
   @override
   void initState() {
@@ -98,11 +115,6 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-      _status = "Mencari layanan Wireless Debugging...";
-    });
-
     // 2. Tampilkan notifikasi "Searching"
     NotificationService.showGuide();
 
@@ -120,8 +132,6 @@ class _HomePageState extends State<HomePage> {
     } catch (e) {
       _showSnackBar("Gagal: $e");
       await NotificationService.cancel(1);
-    } finally {
-      setState(() => _isLoading = false);
     }
   }
 
@@ -173,6 +183,14 @@ class _HomePageState extends State<HomePage> {
       setState(() => _status = "Error: $e");
     } finally {
       setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _openDeveloperOptions() async {
+    try {
+      await platform.invokeMethod('openDeveloperOptions');
+    } on PlatformException catch (e) {
+      _showSnackBar("Gagal membuka pengaturan: ${e.message}");
     }
   }
 
@@ -252,60 +270,73 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        title: const Text("Stellar", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("Stellar", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18)),
         centerTitle: true,
         actions: [
-          IconButton(onPressed: _showLogConsole, icon: const Icon(Icons.receipt_long_outlined)),
+          IconButton(
+            onPressed: _showLogConsole, 
+            icon: const Icon(Icons.terminal_rounded, size: 22, color: Colors.black54)
+          ),
         ],
       ),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.bolt, size: 64, color: Colors.deepPurple),
-              const SizedBox(height: 16),
-              Text(
-                "Wireless ADB Pairing",
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 32),
+              const Icon(Icons.bolt_rounded, size: 48, color: Color(0xFF4E61D3)),
+              const SizedBox(height: 8),
+              const Text("Wireless ADB", style: TextStyle(fontSize: 14, color: Colors.black54)),
+              const SizedBox(height: 48),
               if (_isLoading)
                 const CircularProgressIndicator()
               else ...[
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: _handlePair,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.deepPurple,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text("PAIR"),
+                ElevatedButton.icon(
+                  onPressed: _handlePair,
+                  icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
+                  label: const Text("PAIR DEVICE"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4E61D3),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
                   ),
                 ),
                 const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: OutlinedButton(
-                    onPressed: _handleConnect,
-                    child: const Text("CONNECT"),
+                OutlinedButton.icon(
+                  onPressed: _handleConnect,
+                  icon: const Icon(Icons.link_rounded, size: 18),
+                  label: const Text("CONNECT"),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFF4E61D3)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+                const SizedBox(height: 32),
+                TextButton.icon(
+                  onPressed: _openDeveloperOptions,
+                  icon: const Icon(Icons.settings_applications_rounded, size: 18),
+                  label: const Text("Developer Options"),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.black54,
                   ),
                 ),
               ],
               const SizedBox(height: 40),
               if (_status.isNotEmpty)
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(8),
+                    color: const Color(0xFFCFADC1).withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFCFADC1).withOpacity(0.3)),
                   ),
-                  child: Text(_status, textAlign: TextAlign.center),
+                  child: Text(
+                    _status, 
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 12, color: Colors.black87),
+                  ),
                 ),
             ],
           ),
