@@ -1,7 +1,6 @@
 use crate::frb_generated::*;
 use anyhow::{anyhow, Context, Result};
-use log::{info, LevelFilter, Log, Metadata, Record};
-use std::sync::Mutex;
+use log::{info, debug, error};
 use tokio::net::TcpStream;
 use boring::ssl::{SslConnector, SslMethod, SslVerifyMode};
 use boring::pkey::{PKey, Private};
@@ -17,8 +16,6 @@ use std::fs;
 use boring::symm::{Cipher, Crypter, Mode};
 use sha2::Sha256;
 
-static GLOBAL_SINK: Lazy<Mutex<Option<StreamSink<String>>>> = Lazy::new(|| Mutex::new(None));
-
 // Konstanta sesuai referensi AOSP pairing_auth.cpp. 
 // AOSP menggunakan sizeof() yang menyertakan null terminator untuk identitas SPAKE2.
 // Dan ExportKeyingMaterial label juga menyertakan null terminator.
@@ -28,7 +25,6 @@ pub const SERVER_NAME: &[u8] = b"adb pair server\0";
 
 const MSG_TYPE_SPAKE2: u8 = 0;
 const MSG_TYPE_PEER_INFO: u8 = 1;
-const MAX_PEER_INFO_SIZE: usize = 8192;
 
 // --- BoringSSL SPAKE2 FFI Bindings ---
 #[repr(C)]
@@ -59,31 +55,13 @@ impl Drop for SpakeGuard {
     }
 }
 
-struct BridgeLogger;
-
-impl Log for BridgeLogger {
-    fn enabled(&self, _metadata: &Metadata) -> bool { true }
-    fn log(&self, record: &Record) {
-        if let Some(sink) = GLOBAL_SINK.lock().unwrap().as_ref() {
-            let _ = sink.add(format!("[STELLAR_RUST_X25519] {}", record.args()));
-        }
-    }
-    fn flush(&self) {}
-}
-
-pub fn init_logger(sink: StreamSink<String>) {
-    *GLOBAL_SINK.lock().unwrap() = Some(sink);
-    let _ = log::set_boxed_logger(Box::new(BridgeLogger))
-        .map(|()| log::set_max_level(LevelFilter::Info));
-}
-
 #[no_mangle]
-pub async fn init_pairing(port: u16, pairing_code: String) -> Result<String> {
-    info!("Memulai proses pairing X25519 pada 127.0.0.1:{}", port);
+pub async fn init_pairing(port: u16, pairing_code: String, storage_dir: String) -> Result<String> {
+    info!("[PAIR] Memulai proses pairing X25519 pada 127.0.0.1:{}", port);
 
     // 1. TLS Handshake
-    let mut tls_stream = setup_tls(port).await?;
-    info!("TLS X25519 OK");
+    let mut tls_stream = setup_tls(port, &storage_dir).await?;
+    info!("[PAIR] TLS X25519 OK");
 
     // 2. Export Keying Material (EKM) - AOSP menggunakan 64 bytes
     let mut exported_key_material = [0u8; 64];
@@ -96,29 +74,27 @@ pub async fn init_pairing(port: u16, pairing_code: String) -> Result<String> {
     password.extend_from_slice(pairing_code.trim().as_bytes()); // Pastikan PIN bersih dari whitespace
     password.extend_from_slice(&exported_key_material);
 
-    // JANGAN gunakan std::str::from_utf8 karena ada EKM (binary) di dalamnya.
-    // Gunakan hex::encode atau debug format byte-nya saja.
-    info!("DEBUG: Panjang PIN: {} bytes", pairing_code.len());
-    info!("DEBUG: Panjang EKM: {} bytes", exported_key_material.len());
-    info!("DEBUG: Total Password Byte (Hex): {}", hex::encode(&password));
+    debug!("Panjang PIN: {} bytes", pairing_code.len());
+    debug!("Panjang EKM: {} bytes", exported_key_material.len());
+    debug!("Total Password Byte (Hex): {}", hex::encode(&password));
 
     // 4. SPAKE2 Exchange (MSG1 & MSG2)
-    info!("[STEP 2/3] SPAKE2 Exchange...");
+    info!("[PAIR] [STEP 2/3] SPAKE2 Exchange...");
     let (shared_key, _msg1_bytes, _msg2_bytes) = spake2_exchange(&mut tls_stream, &password).await?;
     
     // 5. Konfirmasi Kunci (MSG3) DIHAPUS - Tidak ada dalam pairing_connection.cpp AOSP
     // send_auth_confirmation(...) -> Server akan reset koneksi jika menerima data tak terduga di sini.
-    info!("SPAKE2 Exchange OK");
+    info!("[PAIR] SPAKE2 Exchange OK");
 
     // 6. PeerInfo Exchange (AES-128-GCM)
-    info!("[STEP 3/3] PeerInfo Exchange...");
-    peer_info_exchange(&mut tls_stream, &shared_key).await?;
-    info!("PAIRING COMPLETE X25519!");
+    info!("[PAIR] [STEP 3/3] PeerInfo Exchange...");
+    peer_info_exchange(&mut tls_stream, &shared_key, &storage_dir).await?;
+    info!("[PAIR] PAIRING COMPLETE X25519!");
 
     Ok("Pairing X25519 berhasil!".to_string())
 }
 
-async fn setup_tls(port: u16) -> Result<tokio_boring::SslStream<TcpStream>> {
+async fn setup_tls(port: u16, _storage_dir: &str) -> Result<tokio_boring::SslStream<TcpStream>> {
     let (cert, pkey) = generate_self_signed_cert()?;
     let mut connector = SslConnector::builder(SslMethod::tls())?;
     connector.set_verify(SslVerifyMode::PEER);
@@ -131,7 +107,7 @@ async fn setup_tls(port: u16) -> Result<tokio_boring::SslStream<TcpStream>> {
     config.set_verify_callback(SslVerifyMode::PEER, |_, _| true);
     
     tokio_boring::connect(config, "localhost", stream).await
-        .context("TLS connection failed")
+        .context("[PAIR] TLS connection failed")
 }
 
 async fn write_adb_msg<S>(stream: &mut S, msg_type: u8, payload: &[u8]) -> Result<()>
@@ -147,18 +123,6 @@ where S: AsyncReadExt + AsyncWriteExt + Unpin {
     Ok(())
 }
 
-async fn read_adb_msg<S>(stream: &mut S) -> Result<(u8, Vec<u8>)>
-where S: AsyncReadExt + AsyncWriteExt + Unpin {
-    let mut header = [0u8; 6];
-    stream.read_exact(&mut header).await?;
-    
-    let msg_type = header[1];
-    let len = i32::from_be_bytes([header[2], header[3], header[4], header[5]]) as usize;
-    
-    let mut payload = vec![0u8; len];
-    stream.read_exact(&mut payload).await?;
-    Ok((msg_type, payload))
-}
 
 async fn read_adb_msg_debug<S>(stream: &mut S) -> Result<(u8, Vec<u8>)>
 where S: AsyncReadExt + AsyncWriteExt + Unpin {
@@ -167,7 +131,7 @@ where S: AsyncReadExt + AsyncWriteExt + Unpin {
     
     let msg_type = header[1];
     let len = i32::from_be_bytes([header[2], header[3], header[4], header[5]]) as usize;
-    info!("DEBUG ADB MSG: Terma Header [type: {}, len: {}], hex: {}", msg_type, len, hex::encode(&header));
+    info!("[PAIR] DEBUG ADB MSG: Terma Header [type: {}, len: {}], hex: {}", msg_type, len, hex::encode(&header));
     
     let mut payload = vec![0u8; len];
     stream.read_exact(&mut payload).await?;
@@ -195,7 +159,7 @@ where S: tokio::io::AsyncReadExt + tokio::io::AsyncWriteExt + Unpin {
     };
     if res != 1 { return Err(anyhow!("FFI: SPAKE2_generate_msg gagal")); }
 
-    info!("DEBUG SPAKE2: MSG1 (outbound) hex: {}", hex::encode(&msg1_bytes));
+    info!("[PAIR] DEBUG SPAKE2: MSG1 (outbound) hex: {}", hex::encode(&msg1_bytes));
     write_adb_msg(stream, MSG_TYPE_SPAKE2, &msg1_bytes).await?;
 
     // 3. Baca MSG2 (Inbound)
@@ -212,40 +176,19 @@ where S: tokio::io::AsyncReadExt + tokio::io::AsyncWriteExt + Unpin {
     };
 
     if res != 1 {
-        return Err(crate::boring_helper::detailed_boring_error("FFI: SPAKE2_process_msg gagal (PIN salah atau Transcript mismatch)"));
+        let err = crate::boring_helper::detailed_boring_error("FFI: SPAKE2_process_msg gagal (PIN salah atau Transcript mismatch)");
+        error!("{}", err);
+        return Err(err);
     }
 
     let y_star_bytes = inbound.to_vec();
-    info!("DEBUG SPAKE2: Shared Key (Final Hash) hex: {}", hex::encode(&shared_key));
-    info!("[STEP 3/3] SPAKE2 Exchange Berhasil!");
+    info!("[PAIR] DEBUG SPAKE2: Shared Key (Final Hash) hex: {}", hex::encode(&shared_key));
+    info!("[PAIR] [STEP 3/3] SPAKE2 Exchange Berhasil!");
     Ok((shared_key, msg1_bytes, y_star_bytes))
 }
 
-async fn send_auth_confirmation<S>(stream: &mut S, shared_secret: &[u8], msg1: &[u8], msg2: &[u8]) -> Result<()>
-where S: AsyncReadExt + AsyncWriteExt + Unpin {
-    // Derivasi kunci konfirmasi
-    let mut kc = [0u8; 32]; 
 
-    // HKDF-SHA256(salt=None, ikm=64_byte_spake2_output)
-    let hk = hkdf::Hkdf::<Sha256>::new(None, shared_secret);
-    hk.expand(b"adb pairing_auth hmac client", &mut kc)
-        .map_err(|_| anyhow!("Gagal derivasi Kc"))?;
-
-    // MSG3: HMAC dihitung langsung di atas msg1 || msg2 (Tanpa SHA256 tambahan)
-    let client_confirmation = {
-        let mut ctx = boring::hmac::Hmac::init(&kc, &MessageDigest::sha256())?;
-        ctx.update(msg1)?;
-        ctx.update(msg2)?;
-        ctx.finalize()?
-    };
-    
-    info!("DEBUG: Client Confirmation (MSG3) hex: {}", hex::encode(&client_confirmation));
-
-    // Kirim MSG3 dan langsung selesaikan tahap auth cleartext
-    write_adb_msg(stream, MSG_TYPE_SPAKE2, &client_confirmation).await
-}
-
-async fn peer_info_exchange<S>(stream: &mut S, shared_key: &[u8]) -> Result<()> 
+async fn peer_info_exchange<S>(stream: &mut S, shared_key: &[u8], storage_dir: &str) -> Result<()>
 where S: AsyncReadExt + AsyncWriteExt + Unpin {
     // 1. Derivasi Kunci menggunakan Shared Key dari SPAKE2
     // HKDF-SHA256(salt=None, ikm=64_byte_spake2_output)
@@ -258,12 +201,12 @@ where S: AsyncReadExt + AsyncWriteExt + Unpin {
     // Referensi AOSP (aes-gcm-128.cpp) memulai IV dengan 12-byte nol
     let base_iv = [0u8; 12]; 
 
-    info!("DEBUG PeerInfo: AES Key: {}", hex::encode(&aes_key));
+    info!("[PAIR] DEBUG PeerInfo: AES Key: {}", hex::encode(&aes_key));
 
     // 2. Siapkan PeerInfo (Sesuai rsa_2048_key.cpp dan adb_wifi.cpp)
     // Berdasarkan log, PeerInfo berukuran tepat 8192 byte (ciphertext 8192 + tag 16 = 8208)
     let peer_info = {
-        let (cert, _) = get_persistent_cert()?;
+        let (cert, _) = get_persistent_cert(storage_dir)?;
         let rsa = cert.public_key()?.rsa()?;
         let adb_pub_key = encode_rsa_adb_format(&rsa)?; 
         
@@ -289,7 +232,7 @@ where S: AsyncReadExt + AsyncWriteExt + Unpin {
     // 3. Enkripsi & Kirim profil Client (Counter 0)
     // Sekarang Stellar mengirim profilnya terlebih dahulu sebelum menerima respon.
     let cipher = Cipher::aes_128_gcm();
-    info!("DEBUG PeerInfo: Plaintext Outbound hex: {}", hex::encode(&peer_info));
+    info!("[PAIR] DEBUG PeerInfo: Plaintext Outbound hex: {}", hex::encode(&peer_info));
 
     let encrypted_client = {
         // Gunakan base_iv murni (Counter 0) untuk paket pertama yang dikirim
@@ -305,8 +248,8 @@ where S: AsyncReadExt + AsyncWriteExt + Unpin {
         out
     };
 
-    info!("DEBUG PeerInfo: Ciphertext Outbound hex: {}", hex::encode(&encrypted_client));
-    info!("DEBUG: Sending Encrypted Client PeerInfo (Counter 0)...");
+    info!("[PAIR] DEBUG PeerInfo: Ciphertext Outbound hex: {}", hex::encode(&encrypted_client));
+    info!("[PAIR] DEBUG: Sending Encrypted Client PeerInfo (Counter 0)...");
     write_adb_msg(stream, MSG_TYPE_PEER_INFO, &encrypted_client).await?;
 
     // 4. Terima & Dekripsi Respon PeerInfo dari Android (Counter 0 Inbound)
@@ -322,8 +265,8 @@ where S: AsyncReadExt + AsyncWriteExt + Unpin {
     // Jangan meng-XOR dengan 1 kecuali ini adalah pesan kedua dalam sesi yang sama.
     let iv_android = base_iv;
 
-    info!("DEBUG ADB RX: first 32 hex: {}", hex::encode(&ciphertext[..std::cmp::min(ciphertext.len(), 32)]));
-    info!("DEBUG AES: CT len={}, Tag: {}", ciphertext.len(), hex::encode(tag));
+    info!("[PAIR] DEBUG ADB RX: first 32 hex: {}", hex::encode(&ciphertext[..std::cmp::min(ciphertext.len(), 32)]));
+    info!("[PAIR] DEBUG AES: CT len={}, Tag: {}", ciphertext.len(), hex::encode(tag));
 
     let decrypted = {
         // Gunakan IV Counter 1 untuk dekripsi balasan dari Android
@@ -340,7 +283,7 @@ where S: AsyncReadExt + AsyncWriteExt + Unpin {
     let peer_info_str = String::from_utf8_lossy(&decrypted)
         .trim_matches(char::from(0))
         .to_string();
-    info!("PEERINFO DECRYPT SUCCESS: {}", peer_info_str);
+    info!("[PAIR] PEERINFO DECRYPT SUCCESS: {}", peer_info_str);
     
     Ok(())
 }
@@ -409,11 +352,11 @@ fn encode_rsa_adb_format(rsa: &Rsa<boring::pkey::Public>) -> Result<Vec<u8>> {
 
 /// Mengambil sertifikat dari penyimpanan internal atau membuatnya jika belum ada.
 /// Ini memastikan kunci yang digunakan saat pairing sama dengan saat koneksi.
-pub(crate) fn get_persistent_cert() -> Result<(X509, PKey<Private>)> {
-    let path = "/data/user/0/labs.oxfnd.stellar/files/adb_cert.pem";
+pub(crate) fn get_persistent_cert(storage_dir: &str) -> Result<(X509, PKey<Private>)> {
+    let path = std::path::Path::new(storage_dir).join("adb_cert.pem");
     
-    if std::path::Path::new(path).exists() {
-        let data = fs::read(path)?;
+    if path.exists() {
+        let data = fs::read(&path)?;
         let cert = X509::from_pem(&data)?;
         let pkey = PKey::private_key_from_pem(&data)?;
         return Ok((cert, pkey));
@@ -424,10 +367,10 @@ pub(crate) fn get_persistent_cert() -> Result<(X509, PKey<Private>)> {
     let mut pem = cert.to_pem()?;
     pem.extend_from_slice(&pkey.private_key_to_pem_pkcs8()?);
     
-    if let Some(parent) = std::path::Path::new(path).parent() {
-        fs::create_dir_all(parent).context("Failed to create storage directory")?;
+    if !std::path::Path::new(storage_dir).exists() {
+        fs::create_dir_all(storage_dir).context("Failed to create storage directory")?;
     }
-    fs::write(path, pem).context("Failed to write permanent certificate file")?;
+    fs::write(&path, pem).context("Failed to write permanent certificate file")?;
 
     Ok((cert, pkey))
 }

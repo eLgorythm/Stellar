@@ -54,7 +54,9 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
       RustLibWire.fromExternalLibrary;
 
   @override
-  Future<void> executeRustInitializers() async {}
+  Future<void> executeRustInitializers() async {
+    await api.crateApiApiInitApp();
+  }
 
   @override
   ExternalLibraryLoaderConfig get defaultExternalLibraryLoaderConfig =>
@@ -64,7 +66,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.11.1';
 
   @override
-  int get rustContentHash => -2123086995;
+  int get rustContentHash => -1549520667;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -75,13 +77,21 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 }
 
 abstract class RustLibApi extends BaseApi {
-  Future<String> crateApiApiConnectToDevice({required String addr});
+  Future<String> crateApiApiConnectToDevice({
+    required String addr,
+    required String storageDir,
+  });
 
-  Stream<String> crateApiApiCreateLogStream();
+  Stream<StellarStatus> crateApiApiCreateStatusStream();
+
+  Future<StellarState> crateApiApiGetCurrentState();
+
+  Future<void> crateApiApiInitApp();
 
   Future<String> crateApiApiInitPairing({
     required int port,
     required String pairingCode,
+    required String storageDir,
   });
 }
 
@@ -94,12 +104,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   });
 
   @override
-  Future<String> crateApiApiConnectToDevice({required String addr}) {
+  Future<String> crateApiApiConnectToDevice({
+    required String addr,
+    required String storageDir,
+  }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(addr, serializer);
+          sse_encode_String(storageDir, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -112,24 +126,26 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_AnyhowException,
         ),
         constMeta: kCrateApiApiConnectToDeviceConstMeta,
-        argValues: [addr],
+        argValues: [addr, storageDir],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiApiConnectToDeviceConstMeta =>
-      const TaskConstMeta(debugName: "connect_to_device", argNames: ["addr"]);
+  TaskConstMeta get kCrateApiApiConnectToDeviceConstMeta => const TaskConstMeta(
+    debugName: "connect_to_device",
+    argNames: ["addr", "storageDir"],
+  );
 
   @override
-  Stream<String> crateApiApiCreateLogStream() {
-    final sink = RustStreamSink<String>();
+  Stream<StellarStatus> crateApiApiCreateStatusStream() {
+    final sink = RustStreamSink<StellarStatus>();
     unawaited(
       handler.executeNormal(
         NormalTask(
           callFfi: (port_) {
             final serializer = SseSerializer(generalizedFrbRustBinding);
-            sse_encode_StreamSink_String_Sse(sink, serializer);
+            sse_encode_StreamSink_stellar_status_Sse(sink, serializer);
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
@@ -141,7 +157,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             decodeSuccessData: sse_decode_unit,
             decodeErrorData: null,
           ),
-          constMeta: kCrateApiApiCreateLogStreamConstMeta,
+          constMeta: kCrateApiApiCreateStatusStreamConstMeta,
           argValues: [sink],
           apiImpl: this,
         ),
@@ -150,20 +166,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     return sink.stream;
   }
 
-  TaskConstMeta get kCrateApiApiCreateLogStreamConstMeta =>
-      const TaskConstMeta(debugName: "create_log_stream", argNames: ["sink"]);
+  TaskConstMeta get kCrateApiApiCreateStatusStreamConstMeta =>
+      const TaskConstMeta(
+        debugName: "create_status_stream",
+        argNames: ["sink"],
+      );
 
   @override
-  Future<String> crateApiApiInitPairing({
-    required int port,
-    required String pairingCode,
-  }) {
+  Future<StellarState> crateApiApiGetCurrentState() {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_u_16(port, serializer);
-          sse_encode_String(pairingCode, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -172,11 +186,72 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
+          decodeSuccessData: sse_decode_stellar_state,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiApiGetCurrentStateConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiApiGetCurrentStateConstMeta =>
+      const TaskConstMeta(debugName: "get_current_state", argNames: []);
+
+  @override
+  Future<void> crateApiApiInitApp() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 4,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiApiInitAppConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiApiInitAppConstMeta =>
+      const TaskConstMeta(debugName: "init_app", argNames: []);
+
+  @override
+  Future<String> crateApiApiInitPairing({
+    required int port,
+    required String pairingCode,
+    required String storageDir,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_u_16(port, serializer);
+          sse_encode_String(pairingCode, serializer);
+          sse_encode_String(storageDir, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 5,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
           decodeSuccessData: sse_decode_String,
           decodeErrorData: sse_decode_AnyhowException,
         ),
         constMeta: kCrateApiApiInitPairingConstMeta,
-        argValues: [port, pairingCode],
+        argValues: [port, pairingCode, storageDir],
         apiImpl: this,
       ),
     );
@@ -184,7 +259,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiApiInitPairingConstMeta => const TaskConstMeta(
     debugName: "init_pairing",
-    argNames: ["port", "pairingCode"],
+    argNames: ["port", "pairingCode", "storageDir"],
   );
 
   @protected
@@ -194,7 +269,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  RustStreamSink<String> dco_decode_StreamSink_String_Sse(dynamic raw) {
+  RustStreamSink<StellarStatus> dco_decode_StreamSink_stellar_status_Sse(
+    dynamic raw,
+  ) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     throw UnimplementedError();
   }
@@ -206,9 +283,54 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  int dco_decode_box_autoadd_u_16(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
+  }
+
+  @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as Uint8List;
+  }
+
+  @protected
+  int? dco_decode_opt_box_autoadd_u_16(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_u_16(raw);
+  }
+
+  @protected
+  StellarState dco_decode_stellar_state(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return StellarState(
+      status: dco_decode_stellar_status(arr[0]),
+      port: dco_decode_opt_box_autoadd_u_16(arr[1]),
+    );
+  }
+
+  @protected
+  StellarStatus dco_decode_stellar_status(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    switch (raw[0]) {
+      case 0:
+        return StellarStatus_Idle();
+      case 1:
+        return StellarStatus_Pairing();
+      case 2:
+        return StellarStatus_Paired();
+      case 3:
+        return StellarStatus_Connecting();
+      case 4:
+        return StellarStatus_Connected();
+      case 5:
+        return StellarStatus_Error(dco_decode_String(raw[1]));
+      default:
+        throw Exception("unreachable");
+    }
   }
 
   @protected
@@ -237,7 +359,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  RustStreamSink<String> sse_decode_StreamSink_String_Sse(
+  RustStreamSink<StellarStatus> sse_decode_StreamSink_stellar_status_Sse(
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -252,10 +374,59 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  int sse_decode_box_autoadd_u_16(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_u_16(deserializer));
+  }
+
+  @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var len_ = sse_decode_i_32(deserializer);
     return deserializer.buffer.getUint8List(len_);
+  }
+
+  @protected
+  int? sse_decode_opt_box_autoadd_u_16(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_u_16(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  StellarState sse_decode_stellar_state(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_status = sse_decode_stellar_status(deserializer);
+    var var_port = sse_decode_opt_box_autoadd_u_16(deserializer);
+    return StellarState(status: var_status, port: var_port);
+  }
+
+  @protected
+  StellarStatus sse_decode_stellar_status(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var tag_ = sse_decode_i_32(deserializer);
+    switch (tag_) {
+      case 0:
+        return StellarStatus_Idle();
+      case 1:
+        return StellarStatus_Pairing();
+      case 2:
+        return StellarStatus_Paired();
+      case 3:
+        return StellarStatus_Connecting();
+      case 4:
+        return StellarStatus_Connected();
+      case 5:
+        var var_field0 = sse_decode_String(deserializer);
+        return StellarStatus_Error(var_field0);
+      default:
+        throw UnimplementedError('');
+    }
   }
 
   @protected
@@ -297,15 +468,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_StreamSink_String_Sse(
-    RustStreamSink<String> self,
+  void sse_encode_StreamSink_stellar_status_Sse(
+    RustStreamSink<StellarStatus> self,
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_String(
       self.setupAndSerialize(
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
+          decodeSuccessData: sse_decode_stellar_status,
           decodeErrorData: sse_decode_AnyhowException,
         ),
       ),
@@ -320,6 +491,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_box_autoadd_u_16(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_16(self, serializer);
+  }
+
+  @protected
   void sse_encode_list_prim_u_8_strict(
     Uint8List self,
     SseSerializer serializer,
@@ -327,6 +504,43 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.length, serializer);
     serializer.buffer.putUint8List(self);
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_16(int? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_u_16(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_stellar_state(StellarState self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_stellar_status(self.status, serializer);
+    sse_encode_opt_box_autoadd_u_16(self.port, serializer);
+  }
+
+  @protected
+  void sse_encode_stellar_status(StellarStatus self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    switch (self) {
+      case StellarStatus_Idle():
+        sse_encode_i_32(0, serializer);
+      case StellarStatus_Pairing():
+        sse_encode_i_32(1, serializer);
+      case StellarStatus_Paired():
+        sse_encode_i_32(2, serializer);
+      case StellarStatus_Connecting():
+        sse_encode_i_32(3, serializer);
+      case StellarStatus_Connected():
+        sse_encode_i_32(4, serializer);
+      case StellarStatus_Error(field0: final field0):
+        sse_encode_i_32(5, serializer);
+        sse_encode_String(field0, serializer);
+    }
   }
 
   @protected

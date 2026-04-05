@@ -1,39 +1,47 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:stellar/logic/pair_logic.dart';
 import 'package:stellar/logic/connect_logic.dart';
 import 'package:stellar/native/frb_generated.dart';
 import 'package:stellar/native/api/api.dart';
 import 'package:stellar/services/notification_service.dart';
-import 'package:stellar/services/log_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:path_provider/path_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await RustLib.init();
+  
+  // Dapatkan direktori internal secara dinamis
+  final directory = await getApplicationSupportDirectory();
+
   // Set status bar transparan untuk tampilan lebih clean
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(statusBarColor: Colors.transparent));
-  runApp(const StellarApp());
+  runApp(StellarApp(storageDir: directory.path));
 }
 
 class StellarApp extends StatelessWidget {
-  const StellarApp({super.key});
+  final String storageDir;
+  const StellarApp({super.key, required this.storageDir});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
+        brightness: Brightness.dark,
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF4E61D3),
-          primary: const Color(0xFF4E61D3),
-          secondary: const Color(0xFFCFADC1),
-          tertiary: const Color(0xFFF4F754),
-          surface: const Color(0xFFFBFBFB),
-          surfaceVariant: const Color(0xFFE9D484),
+          brightness: Brightness.dark,
+          seedColor: const Color(0xFF9575CD), // Lavender base
+          primary: const Color(0xFFD1C4E9),   // Light Lavender
+          surface: const Color(0xFF1A1625),   // Dark Matte Background
+          surfaceContainer: const Color(0xFF2D273F), // Matte Card color
         ),
+        scaffoldBackgroundColor: const Color(0xFF1A1625),
+        appBarTheme: const AppBarTheme(backgroundColor: Colors.transparent),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -41,40 +49,54 @@ class StellarApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const HomePage(),
+      home: HomePage(storageDir: storageDir),
     );
   }
 }
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final String storageDir;
+  const HomePage({super.key, required this.storageDir});
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _isLoading = false;
-  String _status = "";
+  // State Proxy: Menggunakan satu objek untuk semua informasi status
+  StellarStatus _currentStatus = const StellarStatus.idle();
+  AppLifecycleState _lifecycleState = AppLifecycleState.resumed;
   int? _activePort;
-  final ScrollController _logScrollController = ScrollController();
 
-  // Channel untuk memicu intent Android
-  static const platform = MethodChannel('com.stellar.app/settings');
+  // Channel untuk memicu intent Android (tetap hardcoded appId karena ini konstanta sistem)
+  static const platform = MethodChannel('labs.oxfnd.stellar/settings');
 
   @override
   void initState() {
     super.initState();
     _setupServices();
+    WidgetsBinding.instance.addObserver(this);
+    _checkInitialStatus();
+  }
+
+  void _checkInitialStatus() {
+    // Cek apakah sertifikat ada secara sinkron untuk menentukan status awal
+    final certFile = File('${widget.storageDir}/adb_cert.pem');
+    if (certFile.existsSync()) {
+      setState(() => _currentStatus = const StellarStatus.paired());
+    } else {
+      setState(() => _currentStatus = const StellarStatus.idle());
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _lifecycleState = state;
+    super.didChangeAppLifecycleState(state);
   }
 
   void _setupServices() async {
-    // Init Log Service (Mendengarkan Rust stream)
-    LogService().init();
-    
-    // Hubungkan UI ke LogService agar scroll otomatis saat ada log baru
-    LogService().addListener(_scrollToBottom);
-
     // Setup Notification & Isolate Bridge
     await NotificationService.init(
       onPairingReceived: (pin, port) {
@@ -87,19 +109,9 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
-    LogService().removeListener(_scrollToBottom);
+    WidgetsBinding.instance.removeObserver(this);
     NotificationService.dispose();
     super.dispose();
-  }
-
-  void _scrollToBottom() {
-    if (_logScrollController.hasClients) {
-      _logScrollController.animateTo(
-        _logScrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
-    }
   }
 
   void _onNotificationInForeground(NotificationResponse details) {
@@ -111,47 +123,42 @@ class _HomePageState extends State<HomePage> {
   Future<void> _handlePair() async {
     // 1. Request Izin Notifikasi (Android 13+)
     if (await Permission.notification.request().isDenied) {
-      _showSnackBar("Izin notifikasi diperlukan untuk input kode.");
+      _showSnackBar("Notification permission is required for code input.");
       return;
     }
 
-    // 2. Tampilkan notifikasi "Searching"
-    NotificationService.showGuide();
+    // Tampilkan notifikasi petunjuk (Searching) segera setelah tombol ditekan
+    await NotificationService.showGuide();
 
     try {
-      // 3. Cari Service Otomatis di latar belakang
+      // Cari Service Otomatis
       final service = await PairLogic.discoverPairingService();
       
       _activePort = service?.port;
       
-      // 4. Update notifikasi menjadi "Found" dengan input field
-      await NotificationService.cancel(1);
+      // Update notifikasi menjadi "Found" dengan input field
       if (_activePort != null) await NotificationService.showPairingInput(_activePort!);
-      
-      LogService().log("DART: Discovery selesai. Port $_activePort siap. Menunggu input user...");
     } catch (e) {
       _showSnackBar("Gagal: $e");
-      await NotificationService.cancel(1);
     }
   }
 
   void _submitPairing(String code) async {
     if (_activePort == null) {
-      print("DART ERROR: _activePort null saat _submitPairing dipanggil.");
-      _showSnackBar("Error: Port hilang. Silakan coba PAIR lagi.");
+      print("DART ERROR: _activePort is null when _submitPairing is called.");
+      _showSnackBar("Error: Port lost. Please try PAIR again.");
       return;
     }
     
-    LogService().log("DART: Memanggil Rust init_pairing(port: $_activePort, code: $code)");
     setState(() {
       _isLoading = true;
-      _status = "Mengirim kode pairing ke port $_activePort...";
+      _currentStatus = const StellarStatus.pairing();
     });
 
     try {
-      final result = await PairLogic.pair(_activePort!, code);
-      setState(() => _status = result);
-      _showSnackBar("Pairing Berhasil!");
+      final result = await RustLib.instance.api.crateApiApiInitPairing(port: _activePort!, pairingCode: code, storageDir: widget.storageDir);
+      setState(() => _currentStatus = const StellarStatus.paired());
+      _showSnackBar("Pairing Success!");
       
       // 1. Bersihkan semua notifikasi yang menggantung (Searching/Input)
       await NotificationService.cancelAll(); 
@@ -164,23 +171,39 @@ class _HomePageState extends State<HomePage> {
         NotificationService.cancel(2);
       });
     } catch (e) {
-      setState(() => _status = "Error: $e");
+      setState(() => _currentStatus = StellarStatus.error(e.toString()));
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _handleConnect() async {
+  Future<void> _handleUnpair() async {
+    // Logic untuk membersihkan certificate dan status
+    try {
+      // Hapus file sertifikat fisik sesuai path di pair.rs
+      final certFile = File('${widget.storageDir}/adb_cert.pem');
+      if (await certFile.exists()) {
+        await certFile.delete();
+      }
+    } catch (e) {
+    }
+
     setState(() {
-      _isLoading = true;
-      _status = "Connecting to device...";
+      _currentStatus = const StellarStatus.idle();
+      _activePort = null;
     });
+    _showSnackBar("Pairing session removed.");
+  }
+
+  Future<void> _handleConnect() async {
+    setState(() => _isLoading = true);
 
     try {
-      final result = await ConnectLogic.connect();
-      setState(() => _status = result);
+      // Memanggil ConnectLogic yang melakukan discovery port _adb-tls-connect
+      final result = await ConnectLogic.connect(widget.storageDir);
+      setState(() => _currentStatus = const StellarStatus.connected());
     } catch (e) {
-      setState(() => _status = "Error: $e");
+      setState(() => _currentStatus = StellarStatus.error(e.toString()));
     } finally {
       setState(() => _isLoading = false);
     }
@@ -190,75 +213,8 @@ class _HomePageState extends State<HomePage> {
     try {
       await platform.invokeMethod('openDeveloperOptions');
     } on PlatformException catch (e) {
-      _showSnackBar("Gagal membuka pengaturan: ${e.message}");
+      _showSnackBar("Failed to open setting: ${e.message}");
     }
-  }
-
-  void _showLogConsole() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            const Icon(Icons.terminal, size: 20, color: Colors.black54),
-            const SizedBox(width: 12),
-            const Text("System Logs", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const Spacer(),
-            IconButton(
-              icon: const Icon(Icons.copy_all_outlined, size: 20),
-              onPressed: () {
-                final allLogs = LogService().logs.join('\n');
-                Clipboard.setData(ClipboardData(text: allLogs));
-                _showSnackBar("Log disalin ke clipboard");
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete_sweep_outlined, size: 20),
-              onPressed: () => LogService().clear(),
-            ),
-          ],
-        ),
-        content: Container(
-          width: double.maxFinite,
-          height: 350,
-          decoration: BoxDecoration(
-            color: Colors.grey[50],
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: SelectionArea(
-            child: ListenableBuilder(
-              listenable: LogService(),
-              builder: (context, _) {
-                final logs = LogService().logs;
-                return ListView.builder(
-                  controller: _logScrollController,
-                  padding: const EdgeInsets.all(12),
-                  itemCount: logs.length,
-                  itemBuilder: (context, index) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 2),
-                      child: Text(
-                        logs[index],
-                        style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: Colors.black87),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Close", style: TextStyle(color: Colors.deepPurple)),
-          ),
-        ],
-      ),
-    );
   }
 
   void _showSnackBar(String message) {
@@ -269,77 +225,175 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    // Logic UI yang sangat bersih berdasarkan State Proxy
+    bool isPaired = false;
+    bool isConnected = false;
+    bool isError = false;
+    String statusDisplay = "(is not running)";
+    Color statusColor = Colors.white.withOpacity(0.6);
+    String errorMessage = "";
+
+    switch (_currentStatus) {
+      case StellarStatus_Idle():
+        break;
+      case StellarStatus_Pairing():
+        statusDisplay = "(pairing...)";
+        break;
+      case StellarStatus_Connecting():
+        statusDisplay = "(connecting...)";
+        break;
+      case StellarStatus_Paired():
+        isPaired = true;
+        statusDisplay = "(paired)";
+        statusColor = const Color(0xFFAEEA00);
+        break;
+      case StellarStatus_Connected():
+        isPaired = true;
+        isConnected = true;
+        statusDisplay = "(paired, connected)";
+        statusColor = const Color(0xFFAEEA00);
+        break;
+      case StellarStatus_Error(field0: final msg):
+        isError = true;
+        statusDisplay = "(Error)";
+        errorMessage = msg;
+        statusColor = Colors.redAccent;
+        break;
+    }
+    
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        title: const Text("Stellar", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18)),
-        centerTitle: true,
+        title: const Text(
+          "Stellar",
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
+        ),
+        centerTitle: false,
+        elevation: 0,
         actions: [
           IconButton(
-            onPressed: _showLogConsole, 
-            icon: const Icon(Icons.terminal_rounded, size: 22, color: Colors.black54)
+            onPressed: _openDeveloperOptions,
+            icon: const Icon(Icons.settings_outlined),
           ),
         ],
       ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            children: [
-              const Icon(Icons.bolt_rounded, size: 48, color: Color(0xFF4E61D3)),
-              const SizedBox(height: 8),
-              const Text("Wireless ADB", style: TextStyle(fontSize: 14, color: Colors.black54)),
-              const SizedBox(height: 48),
-              if (_isLoading)
-                const CircularProgressIndicator()
-              else ...[
-                ElevatedButton.icon(
-                  onPressed: _handlePair,
-                  icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
-                  label: const Text("PAIR DEVICE"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4E61D3),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Status Card
+            Card(
+              elevation: 0,
+              color: Theme.of(context).colorScheme.surfaceContainer,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: Colors.white.withOpacity(0.05)),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.bolt_rounded,
+                      color: Color(0xFFD1C4E9),
+                      size: 28,
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          RichText(
+                            text: TextSpan(
+                              style: const TextStyle(fontSize: 16, color: Colors.white),
+                              children: [
+                                const TextSpan(text: "Stellar ", style: TextStyle(fontWeight: FontWeight.bold)),
+                                TextSpan(
+                                  text: statusDisplay,
+                                  style: TextStyle(color: statusColor, fontWeight: isPaired ? FontWeight.bold : FontWeight.normal),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            
+            // Action Buttons
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: isPaired ? _handleUnpair : _handlePair,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isPaired 
+                        ? Colors.redAccent.withOpacity(0.2) 
+                        : const Color(0xFF9575CD),
+                      foregroundColor: isPaired ? Colors.redAccent : Colors.white,
+                    ),
+                    child: Text(isPaired ? "UNPAIR" : "PAIR"),
                   ),
                 ),
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: _handleConnect,
-                  icon: const Icon(Icons.link_rounded, size: 18),
-                  label: const Text("CONNECT"),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFF4E61D3)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-                const SizedBox(height: 32),
-                TextButton.icon(
-                  onPressed: _openDeveloperOptions,
-                  icon: const Icon(Icons.settings_applications_rounded, size: 18),
-                  label: const Text("Developer Options"),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.black54,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: isPaired && !_isLoading ? _handleConnect : null,
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(
+                        color: isPaired ? const Color(0xFF9575CD) : Colors.white10
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text("CONNECT"),
                   ),
                 ),
               ],
-              const SizedBox(height: 40),
-              if (_status.isNotEmpty)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFCFADC1).withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFCFADC1).withOpacity(0.3)),
-                  ),
-                  child: Text(
-                    _status, 
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 12, color: Colors.black87),
+            ),
+            
+            // Error Card Baru di Bagian Bawah
+            if (isError && errorMessage.isNotEmpty) ...[
+              const Spacer(),
+              Card(
+                elevation: 0,
+                color: Colors.redAccent.withOpacity(0.1),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: Colors.redAccent.withOpacity(0.3)),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            "Connection Error",
+                            style: TextStyle(color: Colors.redAccent.withOpacity(0.9), fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        errorMessage,
+                        style: const TextStyle(color: Colors.white70, fontSize: 13, fontFamily: 'monospace'),
+                      ),
+                    ],
                   ),
                 ),
+              ),
             ],
-          ),
+          ],
         ),
       ),
     );

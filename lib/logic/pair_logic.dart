@@ -1,21 +1,20 @@
 import 'package:stellar/native/api/api.dart';
 import 'package:nsd/nsd.dart';
 import 'dart:async';
-import 'package:stellar/services/log_service.dart';
 
 class PairLogic {
   // Simpan port secara static agar bisa diakses oleh background task
   static int? activePort;
 
-  static Future<String> pair(int port, String pairingCode) async {
+  static Future<String> pair(int port, String pairingCode, String storageDir) async {
     return await initPairing(
       port: port,
       pairingCode: pairingCode,
+      storageDir: storageDir,
     );
   }
 
   static Future<Service?> discoverPairingService() async {
-    LogService().log("DART: Memulai mDNS discovery untuk _adb-tls-pairing._tcp");
     final discovery = await startDiscovery('_adb-tls-pairing._tcp');
     final completer = Completer<Service>();
 
@@ -23,7 +22,6 @@ class PairLogic {
       if (discovery.services.isNotEmpty && !completer.isCompleted) {
         final service = discovery.services.first;
         activePort = service.port;
-        LogService().log("DART: Layanan ditemukan: ${service.name} pada port ${service.port}");
         completer.complete(service);
       }
     }
@@ -39,7 +37,7 @@ class PairLogic {
     try {
       return await completer.future.timeout(const Duration(seconds: 30));
     } on TimeoutException {
-      throw Exception("Layanan pairing tidak ditemukan. Pastikan Wireless Debugging aktif.");
+      throw Exception("Pairing service not found. Make sure Wireless Debugging enable.");
     } finally {
       discovery.removeListener(listener);
       await stopDiscovery(discovery);

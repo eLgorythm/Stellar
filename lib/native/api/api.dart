@@ -5,15 +5,59 @@
 
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
+import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
+part 'api.freezed.dart';
 
-Stream<String> createLogStream() =>
-    RustLib.instance.api.crateApiApiCreateLogStream();
+Future<String> initPairing({
+  required int port,
+  required String pairingCode,
+  required String storageDir,
+}) => RustLib.instance.api.crateApiApiInitPairing(
+  port: port,
+  pairingCode: pairingCode,
+  storageDir: storageDir,
+);
 
-Future<String> initPairing({required int port, required String pairingCode}) =>
-    RustLib.instance.api.crateApiApiInitPairing(
-      port: port,
-      pairingCode: pairingCode,
-    );
+Future<String> connectToDevice({
+  required String addr,
+  required String storageDir,
+}) => RustLib.instance.api.crateApiApiConnectToDevice(
+  addr: addr,
+  storageDir: storageDir,
+);
 
-Future<String> connectToDevice({required String addr}) =>
-    RustLib.instance.api.crateApiApiConnectToDevice(addr: addr);
+Future<StellarState> getCurrentState() =>
+    RustLib.instance.api.crateApiApiGetCurrentState();
+
+Stream<StellarStatus> createStatusStream() =>
+    RustLib.instance.api.crateApiApiCreateStatusStream();
+
+class StellarState {
+  final StellarStatus status;
+  final int? port;
+
+  const StellarState({required this.status, this.port});
+
+  @override
+  int get hashCode => status.hashCode ^ port.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is StellarState &&
+          runtimeType == other.runtimeType &&
+          status == other.status &&
+          port == other.port;
+}
+
+@freezed
+sealed class StellarStatus with _$StellarStatus {
+  const StellarStatus._();
+
+  const factory StellarStatus.idle() = StellarStatus_Idle;
+  const factory StellarStatus.pairing() = StellarStatus_Pairing;
+  const factory StellarStatus.paired() = StellarStatus_Paired;
+  const factory StellarStatus.connecting() = StellarStatus_Connecting;
+  const factory StellarStatus.connected() = StellarStatus_Connected;
+  const factory StellarStatus.error(String field0) = StellarStatus_Error;
+}

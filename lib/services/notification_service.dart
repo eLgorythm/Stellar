@@ -15,13 +15,13 @@ void notificationTapBackground(NotificationResponse details) {
   debugPrint("DART BG: sendPort = $sendPort");
 
   if (sendPort != null && details.actionId == 'enter_code' && details.input != null) {
-    debugPrint("DART: Background Isolate mengirim data ke Main Isolate...");
+    debugPrint("DART: Background Isolate sends data to Main Isolate...");
     sendPort.send({
       'pin': details.input,
       'port': int.tryParse(details.payload ?? ''),
     });
   } else {
-    debugPrint("DART ERROR: Gagal mengirim data. SendPort tidak ditemukan.");
+    debugPrint("DART ERROR: Failed to send data. SendPort not found.");
   }
 }
 
@@ -39,7 +39,7 @@ class NotificationService {
     IsolateNameServer.removePortNameMapping(isolateName);
     final bool success = IsolateNameServer.registerPortWithName(_receivePort.sendPort, isolateName);
     if (!success) {
-      debugPrint("DART ERROR: Gagal mendaftarkan IsolateNameServer port: $isolateName");
+      debugPrint("DART ERROR: Failed to register IsolateNameServer port: $isolateName");
     }
 
     _receivePort.listen((message) {
@@ -63,7 +63,7 @@ class NotificationService {
     const androidDetails = AndroidNotificationDetails(
       'stellar_high_priority_channel',
       'Pairing Alerts',
-      channelDescription: 'Status proses pairing Wireless ADB',
+      channelDescription: 'Wireless ADB pairing process status',
       importance: Importance.high, // Aktifkan popup
       priority: Priority.max,
       showWhen: false,
@@ -84,7 +84,7 @@ class NotificationService {
     final androidDetails = AndroidNotificationDetails(
       'stellar_high_priority_channel',
       'Pairing Alerts',
-      channelDescription: 'Status proses pairing Wireless ADB',
+      channelDescription: 'Wireless ADB pairing process status',
       importance: Importance.max,
       priority: Priority.max,
       showWhen: false,
@@ -114,7 +114,7 @@ class NotificationService {
     const androidDetails = AndroidNotificationDetails(
       'stellar_high_priority_channel',
       'Pairing Alerts',
-      channelDescription: 'Status proses pairing Wireless ADB',
+      channelDescription: 'Wireless ADB pairing process status',
       importance: Importance.high,
       priority: Priority.max,
       showWhen: false,

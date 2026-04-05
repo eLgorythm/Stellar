@@ -13,11 +13,11 @@ const MAX_PAYLOAD: u32 = 1024 * 1024;
 
 /// Melakukan koneksi ADB Secure (TLS) ke perangkat yang sudah di-pairing.
 /// Alur: TLS Handshake -> ADB CNXN Packet Exchange.
-pub async fn connect_to_device(addr: String) -> Result<String> {
-    info!("[CONNECT] Memulai negosiasi protokol dengan {}...", addr);
+pub async fn connect_to_device(addr: String, storage_dir: String) -> Result<String> {
+    info!("[CONNECTION] Memulai negosiasi dengan {}...", addr);
 
     // 1. Persiapkan sertifikat permanen
-    let (cert, pkey) = get_persistent_cert().context("Certificate not found. Please pair first.")?;
+    let (cert, pkey) = get_persistent_cert(&storage_dir).context("Certificate not found. Please pair first.")?;
     
     // 2. Sambungkan ke TCP port Wireless Debugging
     let mut stream = TcpStream::connect(&addr).await
@@ -38,7 +38,7 @@ pub async fn connect_to_device(addr: String) -> Result<String> {
     if cmd != A_STLS {
         return Err(anyhow!("Perangkat tidak merespons dengan STLS (Command: 0x{:08x}). Pastikan Wireless Debugging aktif.", cmd));
     }
-    info!("[CONNECT] Server mendukung TLS. Mengonfirmasi STLS...");
+    info!("[CONNECTION] Server mendukung TLS. Mengonfirmasi upgrade...");
 
     // C. Kirim STLS konfirmasi
     write_adb_packet(&mut stream, A_STLS, A_STLS_VERSION, 0, &[]).await?;
@@ -46,7 +46,7 @@ pub async fn connect_to_device(addr: String) -> Result<String> {
     // --- FASE TLS UPGRADE ---
 
     let tls_stream = upgrade_to_tls(stream, cert, pkey).await?;
-    info!("[CONNECT] TLS Handshake Berhasil. Menginisialisasi sesi ADB...");
+    info!("[CONNECTION] TLS Handshake Berhasil. Menginisialisasi sesi ADB...");
 
     // --- FASE SECURE ADB (Encrypted) ---
 
@@ -63,7 +63,7 @@ pub async fn connect_to_device(addr: String) -> Result<String> {
             let mut data_raw = vec![0u8; data_len];
             secure_stream.read_exact(&mut data_raw).await?;
             let device_identity = String::from_utf8_lossy(&data_raw);
-            info!("ADB Connection Successful! Device: {}", device_identity);
+            info!("[CONNECTION] ADB Secure Connected! Device: {}", device_identity);
         }
         Ok("Connection successful!".to_string())
     } else {
