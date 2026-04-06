@@ -18,6 +18,12 @@ Future<String> initPairing({
   storageDir: storageDir,
 );
 
+Future<String> getGachaLink({required int port, required String storageDir}) =>
+    RustLib.instance.api.crateApiApiGetGachaLink(
+      port: port,
+      storageDir: storageDir,
+    );
+
 Future<String> connectToDevice({
   required String addr,
   required String storageDir,

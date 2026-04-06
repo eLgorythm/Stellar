@@ -136,9 +136,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       
       _activePort = service?.port;
       
-      // Update notifikasi menjadi "Found" dengan input field
-      if (_activePort != null) await NotificationService.showPairingInput(_activePort!);
+      if (_activePort != null) { 
+        await NotificationService.showPairingInput(_activePort!);
+      } else {
+        // Jika layanan tidak ditemukan, batalkan panduan searching dan beri tahu user
+        await NotificationService.cancel(1); 
+        _showSnackBar("Pairing service not found.");
+      }
     } catch (e) {
+      // Jika terjadi error selama discovery, batalkan panduan searching
+      await NotificationService.cancel(1); 
       _showSnackBar("Gagal: $e");
     }
   }
@@ -150,6 +157,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       return;
     }
     
+    // Batalkan notifikasi input & guide agar tidak "nyangkut"
+    await NotificationService.cancelAll();
+    
     setState(() {
       _isLoading = true;
       _currentStatus = const StellarStatus.pairing();
@@ -159,12 +169,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       final result = await RustLib.instance.api.crateApiApiInitPairing(port: _activePort!, pairingCode: code, storageDir: widget.storageDir);
       setState(() => _currentStatus = const StellarStatus.paired());
       _showSnackBar("Pairing Success!");
-      
-      // 1. Bersihkan semua notifikasi yang menggantung (Searching/Input)
-      await NotificationService.cancelAll(); 
-      
-      // 2. Tampilkan notifikasi sukses (swipable)
-      await NotificationService.showSuccess();
       
       // 3. Hapus otomatis setelah 5 detik agar tidak menumpuk
       Future.delayed(const Duration(seconds: 5), () {
@@ -195,13 +199,104 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _showSnackBar("Pairing session removed.");
   }
 
+  void _showGachaScannerDialog() {
+    // Pindahkan variabel ke sini agar tidak ter-reset saat builder berjalan ulang
+    bool isScanning = false;
+    String? foundLink;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Text("Gacha Link Scanner"),
+            content: SizedBox(
+              width: MediaQuery.of(context).size.width * 0.9, // Gunakan 90% lebar layar
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text("1. Open Genshin/HSR/HI3/ZZZ\n2. Open Wish History\n3. Tap SCAN below", style: TextStyle(fontSize: 13, color: Colors.white70)),
+                  const SizedBox(height: 20),
+                  if (isScanning) const LinearProgressIndicator(),
+                  if (foundLink != null) 
+                    Container(
+                      margin: const EdgeInsets.only(top: 12),
+                      padding: const EdgeInsets.all(16),
+                      width: double.infinity, // Paksa melebar
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white10),
+                      ),
+                      constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.4, // Gunakan 40% tinggi layar
+                      ),
+                      child: SingleChildScrollView(
+                        child: SelectableText( // Gunakan SelectableText agar lebih mudah diinspeksi
+                          foundLink!.isNotEmpty ? foundLink! : "No valid gacha link found in logs.", 
+                          style: const TextStyle(
+                            fontSize: 14, 
+                            fontFamily: 'monospace', 
+                            color: Colors.white70,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL")),
+              if (foundLink == null)
+                ElevatedButton(
+                  onPressed: isScanning ? null : () async {
+                    setDialogState(() => isScanning = true);
+                    // Trigger notification untuk background scanning
+                    await NotificationService.showStatus("Scanning Gacha Link...", "Please open Wish History in game");
+                    try {
+                      final link = await RustLib.instance.api.crateApiApiGetGachaLink(port: 0, storageDir: widget.storageDir);
+                      debugPrint("DART: Gacha link received from Rust: '$link'"); // Tambahkan debug print ini
+                      setDialogState(() { foundLink = link; isScanning = false; });
+                      await NotificationService.cancel(3); // Hapus notifikasi scanning
+                      await NotificationService.showStatus("Link Retrieved!", "Tap to go back to Stellar", id: 4);
+                    } catch (e) {
+                      setDialogState(() => isScanning = false);
+                      _showSnackBar("Scan failed: $e");
+                      await NotificationService.cancelAll();
+                    }
+                  },
+                  child: const Text("SCAN NOW"),
+                )
+              else
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: foundLink!));
+                    _showSnackBar("Copied!");
+                    Navigator.pop(context);
+                  },
+                  icon: const Icon(Icons.copy_rounded, size: 18),
+                  label: const Text("COPY"),
+                ),
+            ],
+          );
+        }
+      ),
+    );
+  }
+
   Future<void> _handleConnect() async {
     setState(() => _isLoading = true);
+    await NotificationService.showStatus("Connecting...", "Establishing secure ADB session");
 
-    try {
+     try {
       // Memanggil ConnectLogic yang melakukan discovery port _adb-tls-connect
       final result = await ConnectLogic.connect(widget.storageDir);
       setState(() => _currentStatus = const StellarStatus.connected());
+      
+      await NotificationService.showStatus("Connected", "Device is ready for scanning");
+      
+      _showGachaScannerDialog();
     } catch (e) {
       setState(() => _currentStatus = StellarStatus.error(e.toString()));
     } finally {
@@ -219,7 +314,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   void _showSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+      SnackBar(
+        content: Text(
+          message,
+          style: const TextStyle(color: Colors.white),
+        ),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: Colors.white.withOpacity(0.05)),
+        ),
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      ),
     );
   }
 
@@ -229,7 +338,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     bool isPaired = false;
     bool isConnected = false;
     bool isError = false;
-    String statusDisplay = "(is not running)";
     Color statusColor = Colors.white.withOpacity(0.6);
     String errorMessage = "";
 
@@ -237,30 +345,41 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       case StellarStatus_Idle():
         break;
       case StellarStatus_Pairing():
-        statusDisplay = "(pairing...)";
         break;
       case StellarStatus_Connecting():
-        statusDisplay = "(connecting...)";
+        isPaired = true;
+        statusColor = const Color(0xFFD1C4E9); // Light lavender saat proses
         break;
       case StellarStatus_Paired():
         isPaired = true;
-        statusDisplay = "(paired)";
         statusColor = const Color(0xFFAEEA00);
         break;
       case StellarStatus_Connected():
         isPaired = true;
         isConnected = true;
-        statusDisplay = "(paired, connected)";
         statusColor = const Color(0xFFAEEA00);
         break;
       case StellarStatus_Error(field0: final msg):
         isError = true;
-        statusDisplay = "(Error)";
+        isPaired = File('${widget.storageDir}/adb_cert.pem').existsSync();
         errorMessage = msg;
-        statusColor = Colors.redAccent;
+        statusColor = const Color(0xFFAEEA00);
         break;
     }
     
+    // Menentukan teks yang ditampilkan untuk masing-masing status
+    // Jika dalam state error, kita tentukan mana yang menunjukkan pesan "Error"
+    String pairedDisplay = isPaired ? "True" : "False";
+    String connectedDisplay = isConnected ? "True" : "False";
+
+    if (isError) {
+      if (isPaired) {
+        connectedDisplay = "Error";
+      } else {
+        pairedDisplay = "Error";
+      }
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -290,30 +409,35 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 side: BorderSide(color: Colors.white.withOpacity(0.05)),
               ),
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Icon(
-                      Icons.bolt_rounded,
-                      color: Color(0xFFD1C4E9),
-                      size: 28,
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
+                    RichText(
+                      text: TextSpan(
+                        style: const TextStyle(fontSize: 18, color: Colors.white, fontFamily: 'VT323'),
                         children: [
-                          RichText(
-                            text: TextSpan(
-                              style: const TextStyle(fontSize: 16, color: Colors.white),
-                              children: [
-                                const TextSpan(text: "Stellar ", style: TextStyle(fontWeight: FontWeight.bold)),
-                                TextSpan(
-                                  text: statusDisplay,
-                                  style: TextStyle(color: statusColor, fontWeight: isPaired ? FontWeight.bold : FontWeight.normal),
-                                ),
-                              ],
+                          const TextSpan(text: "Is Paired: "),
+                          TextSpan(
+                            text: pairedDisplay,
+                            style: TextStyle(
+                              color: (pairedDisplay == "True") ? statusColor : Colors.redAccent,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    RichText(
+                      text: TextSpan(
+                        style: const TextStyle(fontSize: 18, color: Colors.white, fontFamily: 'VT323'),
+                        children: [
+                          const TextSpan(text: "Is Connected: "),
+                          TextSpan(
+                            text: connectedDisplay,
+                            style: TextStyle(
+                              color: (connectedDisplay == "True") ? statusColor : Colors.redAccent,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ],

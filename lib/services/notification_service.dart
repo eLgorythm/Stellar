@@ -90,7 +90,7 @@ class NotificationService {
       showWhen: false,
       onlyAlertOnce: true,
       category: AndroidNotificationCategory.status,
-      ongoing: true,
+      ongoing: false, // Ubah menjadi false agar bisa di-swipe
       actions: [
         const AndroidNotificationAction(
           'enter_code',
@@ -130,11 +130,45 @@ class NotificationService {
     );
   }
 
+  /// Menampilkan notifikasi status umum (Connecting/Scanning).
+  static Future<void> showStatus(String title, String body, {int id = 3}) async {
+    const androidDetails = AndroidNotificationDetails(
+      'stellar_high_priority_channel',
+      'Status Alerts',
+      channelDescription: 'General application status',
+      importance: Importance.max, // Memastikan popup muncul di atas game
+      priority: Priority.max,
+      showWhen: false,
+    );
+
+    await _plugin.show(
+      id, 
+      title,
+      body,
+      const NotificationDetails(android: androidDetails),
+    );
+  }
+
   /// Menghapus notifikasi berdasarkan ID.
-  static Future<void> cancel(int id) async => await _plugin.cancel(id);
+  static Future<void> cancel(int id) async {
+    try {
+      await _plugin.cancel(id);
+    } catch (e) {
+      // Menghindari crash "Missing type parameter" yang merupakan bug 
+      // platform-side serialization pada plugin di beberapa perangkat Android.
+      debugPrint("DART: Gagal menghapus notifikasi ID $id: $e");
+    }
+  }
 
   /// Menghapus semua notifikasi yang ada.
-  static Future<void> cancelAll() async => await _plugin.cancelAll();
+  static Future<void> cancelAll() async {
+    // Kita tidak menggunakan _plugin.cancelAll() secara langsung karena sering 
+    // memicu RuntimeException pada daftar scheduled notifications yang kosong/korup.
+    // Kita batalkan secara manual ID yang kita gunakan.
+    for (final id in [0, 1, 2, 3, 4]) {
+      await cancel(id);
+    }
+  }
 
   /// Membersihkan resource saat aplikasi ditutup.
   static void dispose() {
