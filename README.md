@@ -8,14 +8,14 @@ This application uses the Self-Pairing technique, where the application acts as 
 
 1. **Enable Developer Options:** Go to Android settings and enable "Wireless Debugging".
 2. **Pairing:**
-- Press the **PAIR** button in the Stellar app.
-- Open the Wireless Debugging settings and select "Pair device with pairing code".
-- Enter the 6-digit code that appears in the Stellar input notification.
+    - Press the **PAIR** button in the Stellar app.
+    - Open the Wireless Debugging settings and select "Pair device with pairing code".
+    - Enter the 6-digit code that appears in the Stellar input notification.
 3. **Connect:** Once the *Is Paired* status is `True`, press the **CONNECT** button.
 4. **Scan Gacha:**
-- Press **SCAN NOW** in the dialog that appears.
-- Open the game (e.g., Genshin Impact) and go to the **History/Request History** page.
-- Wait for the "Link Retrieved!" notification to appear.
+    - Press **SCAN NOW** in the dialog that appears.
+    - Open the game (e.g., Genshin Impact) and go to the **History/Request History** page.
+    - Wait for the "Link Retrieved!" notification to appear.
 5. **Copy Link:** Copy the retrieved link and use it on your preferred gacha analysis platform (such as Paimon.moe).
 
 ## 🛡 Security & Privacy
