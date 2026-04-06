@@ -68,6 +68,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   StellarStatus _currentStatus = const StellarStatus.idle();
   AppLifecycleState _lifecycleState = AppLifecycleState.resumed;
   int? _activePort;
+  String? _savedGachaLink;
 
   // Channel untuk memicu intent Android (tetap hardcoded appId karena ini konstanta sistem)
   static const platform = MethodChannel('labs.oxfnd.stellar/settings');
@@ -80,6 +81,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _checkInitialStatus();
   }
 
+  Future<void> _loadSavedLink() async {
+    try {
+      final file = File('${widget.storageDir}/gacha_link.txt');
+      if (await file.exists()) {
+        final content = await file.readAsString();
+        if (content.isNotEmpty) {
+          setState(() => _savedGachaLink = content);
+        }
+      }
+    } catch (_) {}
+  }
+
   void _checkInitialStatus() {
     // Cek apakah sertifikat ada secara sinkron untuk menentukan status awal
     final certFile = File('${widget.storageDir}/adb_cert.pem');
@@ -88,6 +101,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     } else {
       setState(() => _currentStatus = const StellarStatus.idle());
     }
+    _loadSavedLink();
   }
 
   @override
@@ -199,6 +213,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _showSnackBar("Pairing session removed.");
   }
 
+  Future<void> _persistGachaLink(String link) async {
+    try {
+      final file = File('${widget.storageDir}/gacha_link.txt');
+      await file.writeAsString(link);
+      setState(() => _savedGachaLink = link);
+    } catch (_) {}
+  }
+
   void _showGachaScannerDialog() {
     // Pindahkan variabel ke sini agar tidak ter-reset saat builder berjalan ulang
     bool isScanning = false;
@@ -258,6 +280,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       final link = await RustLib.instance.api.crateApiApiGetGachaLink(port: 0, storageDir: widget.storageDir);
                       debugPrint("DART: Gacha link received from Rust: '$link'"); // Tambahkan debug print ini
                       setDialogState(() { foundLink = link; isScanning = false; });
+                      await _persistGachaLink(link);
                       await NotificationService.cancel(3); // Hapus notifikasi scanning
                       await NotificationService.showStatus("Link Retrieved!", "Tap to go back to Stellar", id: 4);
                     } catch (e) {
@@ -281,6 +304,66 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             ],
           );
         }
+      ),
+    );
+  }
+
+  void _showHistoryDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Last Scanned Link"),
+        content: SizedBox(
+          width: MediaQuery.of(context).size.width * 0.9,
+          child: _savedGachaLink == null
+              ? const Text("No link saved yet. Perform a scan first.")
+              : Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white10),
+                  ),
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.3,
+                  ),
+                  child: SingleChildScrollView(
+                    child: SelectableText(
+                      _savedGachaLink!,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontFamily: 'monospace',
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ),
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("CLOSE"),
+          ),
+          if (_savedGachaLink != null)
+            ElevatedButton.icon(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: _savedGachaLink!));
+                _showSnackBar("Copied to clipboard!");
+                Navigator.pop(context);
+              },
+              icon: const Icon(Icons.copy_rounded, size: 18),
+              label: const Text("COPY"),
+            ),
+          if (_savedGachaLink != null)
+            IconButton(
+              onPressed: () async {
+                await File('${widget.storageDir}/gacha_link.txt').delete();
+                setState(() => _savedGachaLink = null);
+                Navigator.pop(context);
+              },
+              icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+            ),
+        ],
       ),
     );
   }
@@ -389,6 +472,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         centerTitle: false,
         elevation: 0,
         actions: [
+          IconButton(
+            onPressed: _showHistoryDialog,
+            icon: const Icon(Icons.history_rounded),
+          ),
           IconButton(
             onPressed: _openDeveloperOptions,
             icon: const Icon(Icons.settings_outlined),

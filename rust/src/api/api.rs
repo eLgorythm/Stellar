@@ -14,7 +14,7 @@ pub async fn init_pairing(port: u16, pairing_code: String, storage_dir: String) 
     pair::init_pairing(port, pairing_code, storage_dir).await
 }
 
-pub async fn get_gacha_link(port: u16, storage_dir: String) -> anyhow::Result<String> {
+pub async fn get_gacha_link(_port: u16, _storage_dir: String) -> anyhow::Result<String> {
     crate::connect::scan_gacha_link().await
 }
 

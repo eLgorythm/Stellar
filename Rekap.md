@@ -98,3 +98,20 @@ Berdasarkan `Success.md`:
 - `SPAKE2 Exchange Berhasil!` -> PIN dan EKM cocok.
 - `PEERINFO DECRYPT SUKSES` -> Kunci AES valid dan data identitas Android (GUID) berhasil terbaca.
 - `PAIRING COMPLETE X25519!` -> Proses selesai sepenuhnya.
+
+## 5. Pemindaian Gacha Link (Logcat Streaming)
+- **Fungsi `scan_gacha_link`**: Menggunakan shell ADB untuk menjalankan `logcat` dengan filter regex yang dioptimalkan.
+- **Buffering Strategis**: Mengakumulasi data dalam `log_buffer` di sisi Rust untuk menangani link panjang (authkey) yang sering terfragmentasi dalam beberapa paket data ADB (`A_WRTE`).
+- **Line Buffering**: Menggunakan flag `--line-buffered` pada shell Android untuk memastikan data dialirkan segera setelah baris ditemukan, mengurangi latensi deteksi.
+- **Filtering**: Menggunakan `grep -v 'DART:'` untuk mencegah aplikasi menangkap log-nya sendiri yang berisi URL yang sedang diproses.
+
+## 6. Persistensi & Riwayat
+- **Penyimpanan Lokal**: Link gacha terakhir disimpan secara otomatis ke `${storageDir}/gacha_link.txt`.
+- **Manajemen File**: Menggunakan mode penulisan yang menimpa isi lama (overwrite) karena link biasanya hanya berlaku selama 24 jam.
+- **UI History**: Penambahan dialog riwayat yang dapat diakses melalui ikon jam di AppBar untuk memudahkan penyalinan ulang link tanpa harus memicu sesi ADB baru.
+
+## 7. Optimasi Notifikasi & UI
+- **Penyelesaian Crash**: Mengatasi error `Missing type parameter` pada `flutter_local_notifications` dengan mengganti `cancelAll()` menjadi loop manual pembatalan ID spesifik (0-4).
+- **Heads-up Display**: Mengatur `Importance.max` dan `Priority.max` agar notifikasi hasil scan muncul sebagai banner popup di atas game.
+- **State Management**: Menggunakan `StellarStatus` (FRB generated enum) untuk mengelola transisi antarmuka secara reaktif antara status Idle, Pairing, Paired, dan Connected.
+- **Estetika Retro**: Penerapan font `VT323` secara konsisten pada komponen status dan output link untuk memperkuat identitas visual aplikasi.

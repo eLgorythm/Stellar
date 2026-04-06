@@ -175,14 +175,14 @@ fn wire__crate__api__api__get_gacha_link_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_port = <u16>::sse_decode(&mut deserializer);
-            let api_storage_dir = <String>::sse_decode(&mut deserializer);
+            let api__port = <u16>::sse_decode(&mut deserializer);
+            let api__storage_dir = <String>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| async move {
                 transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
                     (move || async move {
                         let output_ok =
-                            crate::api::api::get_gacha_link(api_port, api_storage_dir).await?;
+                            crate::api::api::get_gacha_link(api__port, api__storage_dir).await?;
                         Ok(output_ok)
                     })()
                     .await,
