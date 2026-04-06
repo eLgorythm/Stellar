@@ -1,6 +1,6 @@
 # Stellar - ADB Gacha Link Scanner
 
-Stellar is a Flutter and Rust-based Android application designed to automatically retrieve request history links (*Gacha Links*) from HoYoverse games (Genshin Impact, Honkai: Star Rail, Honkai Impact 3rd, and Zenless Zone Zero) using the ADB Wireless Debugging protocol.
+Stellar is a Android application designed to automatically retrieve request history links (*Gacha Links*) from HoYoverse games (Genshin Impact, Honkai: Star Rail, Honkai Impact 3rd, and Zenless Zone Zero) using the ADB Wireless Debugging protocol.
 
 This application uses the Self-Pairing technique, where the application acts as an ADB client that communicates with the Android system on the same device through the `localhost` interface.
 
