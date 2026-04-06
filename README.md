@@ -1,32 +1,32 @@
 # Stellar - ADB Gacha Link Scanner
 
-Stellar adalah aplikasi Android berbasis Flutter dan Rust yang dirancang untuk mengambil tautan riwayat permohonan (*Gacha Link*) dari game besutan HoYoverse (Genshin Impact, Honkai: Star Rail, Honkai Impact 3rd, dan Zenless Zone Zero) secara otomatis menggunakan protokol **ADB Wireless Debugging**.
+Stellar is a Flutter and Rust-based Android application designed to automatically retrieve request history links (*Gacha Links*) from HoYoverse games (Genshin Impact, Honkai: Star Rail, Honkai Impact 3rd, and Zenless Zone Zero) using the ADB Wireless Debugging protocol.
 
-Aplikasi ini menggunakan teknik **Self-Pairing**, di mana aplikasi bertindak sebagai client ADB yang berkomunikasi dengan sistem Android pada perangkat yang sama melalui antarmuka `localhost`.
+This application uses the Self-Pairing technique, where the application acts as an ADB client that communicates with the Android system on the same device through the `localhost` interface.
 
-## 📖 Cara Penggunaan
+## 📖 How to Use
 
-1. **Aktifkan Developer Options:** Masuk ke pengaturan Android dan aktifkan "Wireless Debugging".
+1. **Enable Developer Options:** Go to Android settings and enable "Wireless Debugging".
 2. **Pairing:**
-    - Tekan tombol **PAIR** di aplikasi Stellar.
-    - Buka pengaturan Wireless Debugging dan pilih "Pair device with pairing code".
-    - Masukkan kode 6-digit yang muncul ke dalam notifikasi input Stellar.
-3. **Connect:** Setelah status *Is Paired* menjadi `True`, tekan tombol **CONNECT**.
+- Press the **PAIR** button in the Stellar app.
+- Open the Wireless Debugging settings and select "Pair device with pairing code".
+- Enter the 6-digit code that appears in the Stellar input notification.
+3. **Connect:** Once the *Is Paired* status is `True`, press the **CONNECT** button.
 4. **Scan Gacha:**
-    - Tekan **SCAN NOW** pada dialog yang muncul.
-    - Buka game (misal: Genshin Impact) dan buka halaman **History/Riwayat Permohonan**.
-    - Tunggu hingga notifikasi "Link Retrieved!" muncul.
-5. **Copy Link:** Salin tautan yang didapat dan gunakan di platform analisis gacha pilihan Anda (seperti Paimon.moe).
+- Press **SCAN NOW** in the dialog that appears.
+- Open the game (e.g., Genshin Impact) and go to the **History/Request History** page.
+- Wait for the "Link Retrieved!" notification to appear.
+5. **Copy Link:** Copy the retrieved link and use it on your preferred gacha analysis platform (such as Paimon.moe).
 
-## 🛡 Keamanan & Privasi
+## 🛡 Security & Privacy
 
-- **No Root Required:** Aplikasi ini bekerja sepenuhnya pada level user menggunakan fitur standar Android Developer.
-- **Local Processing:** Seluruh proses dekripsi dan ekstraksi link dilakukan secara lokal di perangkat Anda. Tidak ada data sensitif (seperti `authkey`) yang dikirim ke server pihak ketiga oleh aplikasi ini.
-- **Ephemeral Keys:** Sertifikat TLS dibuat secara unik per perangkat dan disimpan di direktori internal aplikasi yang aman.
+- **No Root Required:** This app works entirely at the user level using standard Android Developer features.
+- **Local Processing:** All link decryption and extraction processes are performed locally on your device. No sensitive data (such as the `authkey`) is sent to third-party servers by this app.
+- **Ephemeral Keys:** TLS certificates are generated uniquely per device and stored in a secure internal directory of the app.
 
-## ⚖️ Lisensi
+## ⚖️ License
 
-Proyek ini dikembangkan untuk tujuan edukasi dan alat bantu personal. Stellar tidak berafiliasi dengan HoYoverse. Penggunaan aplikasi ini tunduk pada kebijakan privasi dan ketentuan layanan masing-masing game.
+This project was developed for educational purposes and as a personal tool. Stellar is not affiliated with HoYoverse. Use of this application is subject to each game's privacy policy and terms of service.
 
 ---
 *Developed with ❤️ by elfnd using Flutter & Rust.*
