@@ -1,84 +1,78 @@
-Client (Stellar)                          Server (Android adbd)
-------------------                        ------------------------
+# Stellar Flow Diagrams
 
-[1] Generate Ed25519 + X509
-        |
-        |  TLS Connect (BoringSSL)
-        |-------------------------------------->
-        |<--------------------------------------  TLS Handshake OK
-        |
-        |  --- SPAKE2 START ---
-        |
-[2] MSG1: SPAKE2 (32 byte)
-        |-------------------------------------->
-        |
-        |<--------------------------------------  MSG2: SPAKE2 (32 byte)
-        |
-[3] Compute Shared Secret
-        |
-[4] HKDF → Kc, Ks
-        |
-[5] MSG3 = HMAC(Kc, MSG1 || MSG2)
-        |-------------------------------------->
-        |
-        |<--------------------------------------  MSG4 = HMAC(Ks, MSG1 || MSG2 || MSG3)
-        |
-[6] Verify MSG4 ✅
-        |
-        |<--------------------------------------  PeerInfo (AES-GCM encrypted)
-        |
-[7] Decrypt PeerInfo (Ks)
-        |
-[8] Decode protobuf PeerInfo
-        |
-        |-------------------------------------->  Send Client PeerInfo (encrypted)
-        |
-        |  --- TLS READY ---
-        |
-[9] Pairing SUCCESS → device trusted
+Dokumen ini menjelaskan alur teknis proses **Pairing** dan **Connection** antara aplikasi Stellar dan layanan Android Wireless Debugging.
 
-=============================================================
-TLS → SPAKE2 → HKDF → MSG3 → MSG4 → VERIFY → AES → PeerInfo
-=============================================================
+## 1. Alur Proses Pairing (SPAKE2)
 
-Participant Client (Stellar)
-Participant Server (adbd)
+Proses ini dilakukan sekali untuk mendaftarkan sertifikat Stellar ke sistem Android.
 
-Client->Server: TLS Handshake (BoringSSL)
-Server-->Client: TLS Established
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant F as Flutter UI
+    participant R as Rust (pair.rs)
+    participant A as Android adbd
 
-Note over Client,Server: === SPAKE2 PHASE ===
+    U->>F: Tap PAIR
+    F->>F: Start mDNS Discovery (_adb-tls-pairing)
+    F->>U: Show "Ready to Pair" Notification
+    U->>F: Input 6-digit PIN
+    F->>R: init_pairing(port, PIN, storage_dir)
+    
+    R->>A: 1. TLS 1.3 Handshake (Self-signed Cert)
+    A-->>R: TLS Established
+    
+    Note over R: Export Keying Material (EKM) 64-bit
+    Note over R: Password = PIN + EKM
+    
+    R->>A: 2. SPAKE2 MSG1 (Outbound)
+    A-->>R: SPAKE2 MSG2 (Inbound)
+    
+    Note over R: Derive Shared Key & AES-128-GCM Key (HKDF)
+    
+    R->>A: 3. PeerInfo Exchange (Encrypted RSA PubKey)
+    A-->>R: PeerInfo Response (Encrypted)
+    
+    Note over R: Save Cert to adb_cert.pem
+    R-->>F: Return Success
+    F->>U: Show "Pairing Success"
+```
 
-Client->Server: MSG1 (SPAKE2, 32B)
-Server-->Client: MSG2 (SPAKE2, 32B)
+## 2. Alur Proses Connection (ADB Secure)
 
-Note over Client: Compute shared_secret
-Note over Client: HKDF → Kc, Ks
+Proses ini dilakukan setiap kali aplikasi ingin memulai sesi perintah ADB (seperti logcat).
 
-Client->Server: MSG3 = HMAC(Kc, MSG1 || MSG2)
+```mermaid
+sequenceDiagram
+    participant F as Flutter UI
+    participant R as Rust (connect.rs)
+    participant A as Android adbd
 
-Server-->Client: MSG4 = HMAC(Ks, MSG1 || MSG2 || MSG3)
+    F->>F: Start mDNS Discovery (_adb-tls-connect)
+    F->>R: connect_to_device(addr, storage_dir)
+    
+    R->>R: Load adb_cert.pem from storage
+    R->>A: TCP Connect (Wireless Debug Port)
+    
+    Note over R,A: PHASE 1: STLS Negotiation (Cleartext)
+    R->>A: Send CNXN (host::)
+    A-->>R: Send STLS Response
+    R->>A: Send STLS Confirm
+    
+    Note over R,A: PHASE 2: TLS Upgrade
+    R->>A: TLS Handshake (Using Persistent Cert)
+    A-->>R: TLS Established
+    
+    Note over R,A: PHASE 3: Secure ADB Session
+    A-->>R: Send Encrypted CNXN (Device Info)
+    
+    Note over R: Store SslStream in ACTIVE_SESSION
+    R-->>F: Return Success
+    F->>F: Show Gacha Scanner Dialog
+```
 
-Note over Client: Verify MSG4 ✅
+## Keterangan Teknis
 
-Note over Client,Server: === ENCRYPTED CHANNEL ===
-
-Server-->Client: PeerInfo (AES-GCM, key=Ks)
-
-Note over Client: Decrypt PeerInfo (Ks)
-Note over Client: Decode protobuf
-
-Client->Server: PeerInfo (AES-GCM, key=Kc)
-
-Note over Client,Server: === PAIRING COMPLETE ===
-
-Server-->Client: Pairing Success (implicit)
-Note over Client: Device trusted & appears in adb devices
-
-┌─────────────────┬─────────────────────┐
-│    TLS Layer    │   SPAKE2 Layer      │
-├─────────────────┼─────────────────────┤
-│   Ed25519       │     P-256 SPAKE2    │
-│   Client Cert   │   x/y scalars       │
-│   (Auth)        │   (Key Exchange)    │
-└─────────────────┴─────────────────────┘
+- **SPAKE2:** Digunakan untuk otentikasi berbasis password tanpa mengirimkan password asli melalui jaringan.
+- **EKM:** Menjamin bahwa sesi SPAKE2 terikat secara kriptografis ke sesi TLS yang aktif.
+- **STLS:** Protokol transisi milik ADB untuk meningkatkan koneksi dari TCP biasa ke TLS (Secure ADB).

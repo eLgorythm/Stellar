@@ -280,9 +280,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       final link = await RustLib.instance.api.crateApiApiGetGachaLink(port: 0, storageDir: widget.storageDir);
                       debugPrint("DART: Gacha link received from Rust: '$link'"); // Tambahkan debug print ini
                       setDialogState(() { foundLink = link; isScanning = false; });
-                      await _persistGachaLink(link);
-                      await NotificationService.cancel(3); // Hapus notifikasi scanning
+                      _persistGachaLink(link); // Jalankan tanpa await agar lebih responsif
                       await NotificationService.showStatus("Link Retrieved!", "Tap to go back to Stellar", id: 4);
+                      await NotificationService.cancel(3); // Hapus notifikasi scanning setelah yang baru muncul
                     } catch (e) {
                       setDialogState(() => isScanning = false);
                       _showSnackBar("Scan failed: $e");

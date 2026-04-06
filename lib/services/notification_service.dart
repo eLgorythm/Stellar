@@ -82,11 +82,13 @@ class NotificationService {
   /// Menampilkan notifikasi input kode setelah port ditemukan.
   static Future<void> showPairingInput(int port) async {
     final androidDetails = AndroidNotificationDetails(
-      'stellar_high_priority_channel',
+      'stellar_urgent_channel',
       'Pairing Alerts',
       channelDescription: 'Wireless ADB pairing process status',
       importance: Importance.max,
       priority: Priority.max,
+      ticker: 'Stellar Pairing',
+      onlyAlertOnce: false, // Pastikan selalu alert meskipun ID sama
       showWhen: false,
       onlyAlertOnce: true,
       category: AndroidNotificationCategory.status,
@@ -117,6 +119,8 @@ class NotificationService {
       channelDescription: 'Wireless ADB pairing process status',
       importance: Importance.high,
       priority: Priority.max,
+      ticker: 'Stellar Success',
+      onlyAlertOnce: false,
       showWhen: false,
       category: AndroidNotificationCategory.status,
       ongoing: false, // Bisa di-swipe oleh user
@@ -133,12 +137,15 @@ class NotificationService {
   /// Menampilkan notifikasi status umum (Connecting/Scanning).
   static Future<void> showStatus(String title, String body, {int id = 3}) async {
     const androidDetails = AndroidNotificationDetails(
-      'stellar_high_priority_channel',
+      'stellar_urgent_channel',
       'Status Alerts',
       channelDescription: 'General application status',
       importance: Importance.max, // Memastikan popup muncul di atas game
       priority: Priority.max,
-      showWhen: false,
+      ticker: 'Stellar Status',
+      onlyAlertOnce: false, // Sangat penting agar update status (Scanning -> Retrieved) tetap popup
+      showWhen: true,
+      category: AndroidNotificationCategory.status,
     );
 
     await _plugin.show(
@@ -164,10 +171,8 @@ class NotificationService {
   static Future<void> cancelAll() async {
     // Kita tidak menggunakan _plugin.cancelAll() secara langsung karena sering 
     // memicu RuntimeException pada daftar scheduled notifications yang kosong/korup.
-    // Kita batalkan secara manual ID yang kita gunakan.
-    for (final id in [0, 1, 2, 3, 4]) {
-      await cancel(id);
-    }
+    // Menggunakan Future.wait agar proses pembatalan berjalan paralel (lebih cepat).
+    await Future.wait([0, 1, 2, 3, 4].map((id) => cancel(id)).toList());
   }
 
   /// Membersihkan resource saat aplikasi ditutup.
