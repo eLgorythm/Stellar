@@ -90,7 +90,6 @@ class NotificationService {
       ticker: 'Stellar Pairing',
       onlyAlertOnce: false, // Pastikan selalu alert meskipun ID sama
       showWhen: false,
-      onlyAlertOnce: true,
       category: AndroidNotificationCategory.status,
       ongoing: false, // Ubah menjadi false agar bisa di-swipe
       actions: [
