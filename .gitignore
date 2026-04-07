@@ -44,7 +44,6 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 /android/key.properties
-/android/app/src/main/jniLibs
 /rust
 
 # Stellar Specific
