@@ -14,6 +14,11 @@ void notificationTapBackground(NotificationResponse details) {
   debugPrint("DART BG: input = ${details.input}");
   debugPrint("DART BG: sendPort = $sendPort");
 
+  // Hapus notifikasi input (ID 0) segera setelah tombol ditekan
+  if (details.actionId == 'enter_code') {
+    FlutterLocalNotificationsPlugin().cancel(1);
+  }
+
   if (sendPort != null && details.actionId == 'enter_code' && details.input != null) {
     debugPrint("DART: Background Isolate sends data to Main Isolate...");
     sendPort.send({
@@ -61,11 +66,13 @@ class NotificationService {
   /// Menampilkan notifikasi panduan awal (Ongoing).
   static Future<void> showGuide() async {
     const androidDetails = AndroidNotificationDetails(
-      'stellar_high_priority_channel',
+      'stellar_silent_v1',
       'Pairing Alerts',
       channelDescription: 'Wireless ADB pairing process status',
-      importance: Importance.high, // Aktifkan popup
+      importance: Importance.max, // Tetap popup tapi tanpa suara
       priority: Priority.max,
+      playSound: false,
+      enableVibration: false,
       showWhen: false,
       category: AndroidNotificationCategory.reminder,
       ongoing: true,
@@ -82,11 +89,14 @@ class NotificationService {
   /// Menampilkan notifikasi input kode setelah port ditemukan.
   static Future<void> showPairingInput(int port) async {
     final androidDetails = AndroidNotificationDetails(
-      'stellar_urgent_channel',
+      'stellar_silent_v1', 
       'Pairing Alerts',
       channelDescription: 'Wireless ADB pairing process status',
       importance: Importance.max,
       priority: Priority.max,
+      playSound: false,
+      enableVibration: false,
+      autoCancel: true, // Notifikasi hilang jika di-tap body-nya
       ticker: 'Stellar Pairing',
       onlyAlertOnce: false, // Pastikan selalu alert meskipun ID sama
       showWhen: false,
@@ -102,7 +112,7 @@ class NotificationService {
     );
 
     await _plugin.show(
-      0,
+      1, // Menggunakan ID 1 agar menimpa notifikasi Searching
       'Ready to Pair',
       'Enter the code from system settings.',
       NotificationDetails(android: androidDetails),
@@ -113,11 +123,14 @@ class NotificationService {
   /// Menampilkan notifikasi sukses pairing yang bisa di-swipe.
   static Future<void> showSuccess() async {
     const androidDetails = AndroidNotificationDetails(
-      'stellar_high_priority_channel',
+      'stellar_silent_v1',
       'Pairing Alerts',
       channelDescription: 'Wireless ADB pairing process status',
-      importance: Importance.high,
+      importance: Importance.max,
       priority: Priority.max,
+      playSound: false,
+      enableVibration: false,
+      autoCancel: true,
       ticker: 'Stellar Success',
       onlyAlertOnce: false,
       showWhen: false,
@@ -126,7 +139,7 @@ class NotificationService {
     );
 
     await _plugin.show(
-      2, // ID berbeda agar tidak menimpa yang sedang berjalan jika ada
+      1, // Menggunakan ID 1 agar menimpa notifikasi Connecting/Input
       'Success',
       'Device paired successfully.',
       const NotificationDetails(android: androidDetails),
@@ -134,13 +147,16 @@ class NotificationService {
   }
 
   /// Menampilkan notifikasi status umum (Connecting/Scanning).
-  static Future<void> showStatus(String title, String body, {int id = 3}) async {
+  static Future<void> showStatus(String title, String body, {int id = 1}) async {
     const androidDetails = AndroidNotificationDetails(
-      'stellar_urgent_channel',
-      'Status Alerts',
+      'stellar_silent_v1',
+      'Pairing Alerts',
       channelDescription: 'General application status',
       importance: Importance.max, // Memastikan popup muncul di atas game
       priority: Priority.max,
+      playSound: false,
+      enableVibration: false,
+      autoCancel: true,
       ticker: 'Stellar Status',
       onlyAlertOnce: false, // Sangat penting agar update status (Scanning -> Retrieved) tetap popup
       showWhen: true,

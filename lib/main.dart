@@ -181,12 +181,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     try {
       final result = await RustLib.instance.api.crateApiApiInitPairing(port: _activePort!, pairingCode: code, storageDir: widget.storageDir);
+      await NotificationService.showSuccess();
       setState(() => _currentStatus = const StellarStatus.paired());
       _showSnackBar("Pairing Success!");
       
       // 3. Hapus otomatis setelah 5 detik agar tidak menumpuk
       Future.delayed(const Duration(seconds: 5), () {
-        NotificationService.cancel(2);
+        NotificationService.cancel(1); // Update ID to match showSuccess()
       });
     } catch (e) {
       setState(() => _currentStatus = StellarStatus.error(e.toString()));
