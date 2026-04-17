@@ -1,8 +1,15 @@
-# Stellar - Gacha Link Scanner
+# Stellar - Gacha Link Scanner & Pity Counter
 
-Stellar is a Android application designed to automatically retrieve request history links (*Gacha Links*) from HoYoverse games (Genshin Impact, Honkai: Star Rail, Honkai Impact 3rd, and Zenless Zone Zero) using the ADB Wireless Debugging protocol.
+Stellar is an Android application designed to automatically retrieve request history links (*Gacha Links*) and manage gacha statistics for HoYoverse games (**Genshin Impact**, **Honkai: Star Rail**, and **Zenless Zone Zero**) using the ADB Wireless Debugging protocol.
 
 This application uses the Self-Pairing technique, where the application acts as an ADB client that communicates with the Android system on the same device through the `localhost` interface.
+
+## ✨ Key Features
+
+- **Gacha Link Scanner:** Automatically extract the gacha URL from game logs using ADB.
+- **Wish History Import:** Download and save your entire wish history locally from HoYoverse servers.
+- **Pity Counter:** Track your current pity, average 5-star luck, and "Guaranteed" status for every banner.
+- **Multi-Game Support:** Seamlessly switch between Genshin Impact, HSR, and ZZZ.
 
 ## 📖 How to Use
 
@@ -17,12 +24,16 @@ This application uses the Self-Pairing technique, where the application acts as 
     - Open the game (e.g., Genshin Impact) and go to the **History/Request History** page.
     - Wait for the "Link Retrieved!" notification to appear.
 5. **Copy Link:** Copy the retrieved link and use it on your preferred gacha analysis platform (such as Paimon.moe).
+6. **Import History (Optional):**
+    - Use the **IMPORT** button to fetch your history.
+    - Once finished, go to the **Statistics** tab to see your Pity Counter and detailed 5-star history.
 
 ## 🛡 Security & Privacy
 
 - **No Root Required:** This app works entirely at the user level using standard Android Developer features.
 - **Local Processing:** All link decryption and extraction processes are performed locally on your device. No sensitive data (such as the `authkey`) is sent to third-party servers by this app.
 - **Ephemeral Keys:** TLS certificates are generated uniquely per device and stored in a secure internal directory of the app.
+- **Data Ownership:** Your wish history is stored as JSON files only on your device's internal storage.
 
 ## ⚖️ License
 
