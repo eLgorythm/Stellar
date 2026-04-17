@@ -10,6 +10,7 @@ import 'frb_generated.dart';
 import 'frb_generated.io.dart'
     if (dart.library.js_interop) 'frb_generated.web.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
+import 'wish_parser.dart';
 
 /// Main entrypoint of the Rust API
 class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
@@ -66,7 +67,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.11.1';
 
   @override
-  int get rustContentHash => 709060340;
+  int get rustContentHash => 1648520155;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -91,12 +92,23 @@ abstract class RustLibApi extends BaseApi {
     required String storageDir,
   });
 
+  Future<List<BannerSummary>> crateApiApiGetWishSummary({
+    required String storageDir,
+    required String game,
+  });
+
   Future<void> crateApiApiInitApp();
 
   Future<String> crateApiApiInitPairing({
     required int port,
     required String pairingCode,
     required String storageDir,
+  });
+
+  Stream<ProgressUpdate> crateApiApiPerformWishImport({
+    required String url,
+    required String storageDir,
+    required String game,
   });
 }
 
@@ -239,6 +251,40 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   );
 
   @override
+  Future<List<BannerSummary>> crateApiApiGetWishSummary({
+    required String storageDir,
+    required String game,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(storageDir, serializer);
+          sse_encode_String(game, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 5,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_banner_summary,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiApiGetWishSummaryConstMeta,
+        argValues: [storageDir, game],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiApiGetWishSummaryConstMeta => const TaskConstMeta(
+    debugName: "get_wish_summary",
+    argNames: ["storageDir", "game"],
+  );
+
+  @override
   Future<void> crateApiApiInitApp() {
     return handler.executeNormal(
       NormalTask(
@@ -247,7 +293,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 5,
+            funcId: 6,
             port: port_,
           );
         },
@@ -281,7 +327,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 6,
+            funcId: 7,
             port: port_,
           );
         },
@@ -301,10 +347,60 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     argNames: ["port", "pairingCode", "storageDir"],
   );
 
+  @override
+  Stream<ProgressUpdate> crateApiApiPerformWishImport({
+    required String url,
+    required String storageDir,
+    required String game,
+  }) {
+    final sink = RustStreamSink<ProgressUpdate>();
+    unawaited(
+      handler.executeNormal(
+        NormalTask(
+          callFfi: (port_) {
+            final serializer = SseSerializer(generalizedFrbRustBinding);
+            sse_encode_StreamSink_progress_update_Sse(sink, serializer);
+            sse_encode_String(url, serializer);
+            sse_encode_String(storageDir, serializer);
+            sse_encode_String(game, serializer);
+            pdeCallFfi(
+              generalizedFrbRustBinding,
+              serializer,
+              funcId: 8,
+              port: port_,
+            );
+          },
+          codec: SseCodec(
+            decodeSuccessData: sse_decode_unit,
+            decodeErrorData: sse_decode_AnyhowException,
+          ),
+          constMeta: kCrateApiApiPerformWishImportConstMeta,
+          argValues: [sink, url, storageDir, game],
+          apiImpl: this,
+        ),
+      ),
+    );
+    return sink.stream;
+  }
+
+  TaskConstMeta get kCrateApiApiPerformWishImportConstMeta =>
+      const TaskConstMeta(
+        debugName: "perform_wish_import",
+        argNames: ["sink", "url", "storageDir", "game"],
+      );
+
   @protected
   AnyhowException dco_decode_AnyhowException(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return AnyhowException(raw as String);
+  }
+
+  @protected
+  RustStreamSink<ProgressUpdate> dco_decode_StreamSink_progress_update_Sse(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    throw UnimplementedError();
   }
 
   @protected
@@ -322,9 +418,89 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  BannerSummary dco_decode_banner_summary(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 8)
+      throw Exception('unexpected arr length: expect 8 but see ${arr.length}');
+    return BannerSummary(
+      title: dco_decode_String(arr[0]),
+      pity: dco_decode_i_32(arr[1]),
+      last5Star: dco_decode_String(arr[2]),
+      last5StarPity: dco_decode_i_32(arr[3]),
+      isGuaranteed: dco_decode_bool(arr[4]),
+      totalWishes: dco_decode_i_32(arr[5]),
+      history5Star: dco_decode_list_five_star_history(arr[6]),
+      avgPity: dco_decode_f_64(arr[7]),
+    );
+  }
+
+  @protected
+  bool dco_decode_bool(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as bool;
+  }
+
+  @protected
   int dco_decode_box_autoadd_u_16(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as int;
+  }
+
+  @protected
+  CompletedBannerInfo dco_decode_completed_banner_info(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return CompletedBannerInfo(
+      gachaType: dco_decode_String(arr[0]),
+      entriesCount: dco_decode_usize(arr[1]),
+    );
+  }
+
+  @protected
+  double dco_decode_f_64(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as double;
+  }
+
+  @protected
+  FiveStarHistory dco_decode_five_star_history(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return FiveStarHistory(
+      name: dco_decode_String(arr[0]),
+      pity: dco_decode_i_32(arr[1]),
+    );
+  }
+
+  @protected
+  int dco_decode_i_32(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
+  }
+
+  @protected
+  List<BannerSummary> dco_decode_list_banner_summary(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_banner_summary).toList();
+  }
+
+  @protected
+  List<CompletedBannerInfo> dco_decode_list_completed_banner_info(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>)
+        .map(dco_decode_completed_banner_info)
+        .toList();
+  }
+
+  @protected
+  List<FiveStarHistory> dco_decode_list_five_star_history(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_five_star_history).toList();
   }
 
   @protected
@@ -337,6 +513,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   int? dco_decode_opt_box_autoadd_u_16(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_box_autoadd_u_16(raw);
+  }
+
+  @protected
+  ProgressUpdate dco_decode_progress_update(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return ProgressUpdate(
+      gachaType: dco_decode_String(arr[0]),
+      currentPage: dco_decode_u_32(arr[1]),
+      totalEntriesFetched: dco_decode_usize(arr[2]),
+      completedBannerDetails: dco_decode_list_completed_banner_info(arr[3]),
+    );
   }
 
   @protected
@@ -379,6 +569,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  int dco_decode_u_32(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
+  }
+
+  @protected
   int dco_decode_u_8(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as int;
@@ -391,10 +587,24 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  BigInt dco_decode_usize(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dcoDecodeU64(raw);
+  }
+
+  @protected
   AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var inner = sse_decode_String(deserializer);
     return AnyhowException(inner);
+  }
+
+  @protected
+  RustStreamSink<ProgressUpdate> sse_decode_StreamSink_progress_update_Sse(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    throw UnimplementedError('Unreachable ()');
   }
 
   @protected
@@ -413,9 +623,113 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  BannerSummary sse_decode_banner_summary(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_title = sse_decode_String(deserializer);
+    var var_pity = sse_decode_i_32(deserializer);
+    var var_last5Star = sse_decode_String(deserializer);
+    var var_last5StarPity = sse_decode_i_32(deserializer);
+    var var_isGuaranteed = sse_decode_bool(deserializer);
+    var var_totalWishes = sse_decode_i_32(deserializer);
+    var var_history5Star = sse_decode_list_five_star_history(deserializer);
+    var var_avgPity = sse_decode_f_64(deserializer);
+    return BannerSummary(
+      title: var_title,
+      pity: var_pity,
+      last5Star: var_last5Star,
+      last5StarPity: var_last5StarPity,
+      isGuaranteed: var_isGuaranteed,
+      totalWishes: var_totalWishes,
+      history5Star: var_history5Star,
+      avgPity: var_avgPity,
+    );
+  }
+
+  @protected
+  bool sse_decode_bool(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getUint8() != 0;
+  }
+
+  @protected
   int sse_decode_box_autoadd_u_16(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_u_16(deserializer));
+  }
+
+  @protected
+  CompletedBannerInfo sse_decode_completed_banner_info(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_gachaType = sse_decode_String(deserializer);
+    var var_entriesCount = sse_decode_usize(deserializer);
+    return CompletedBannerInfo(
+      gachaType: var_gachaType,
+      entriesCount: var_entriesCount,
+    );
+  }
+
+  @protected
+  double sse_decode_f_64(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getFloat64();
+  }
+
+  @protected
+  FiveStarHistory sse_decode_five_star_history(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_name = sse_decode_String(deserializer);
+    var var_pity = sse_decode_i_32(deserializer);
+    return FiveStarHistory(name: var_name, pity: var_pity);
+  }
+
+  @protected
+  int sse_decode_i_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getInt32();
+  }
+
+  @protected
+  List<BannerSummary> sse_decode_list_banner_summary(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <BannerSummary>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_banner_summary(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<CompletedBannerInfo> sse_decode_list_completed_banner_info(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <CompletedBannerInfo>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_completed_banner_info(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<FiveStarHistory> sse_decode_list_five_star_history(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <FiveStarHistory>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_five_star_history(deserializer));
+    }
+    return ans_;
   }
 
   @protected
@@ -434,6 +748,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     } else {
       return null;
     }
+  }
+
+  @protected
+  ProgressUpdate sse_decode_progress_update(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_gachaType = sse_decode_String(deserializer);
+    var var_currentPage = sse_decode_u_32(deserializer);
+    var var_totalEntriesFetched = sse_decode_usize(deserializer);
+    var var_completedBannerDetails = sse_decode_list_completed_banner_info(
+      deserializer,
+    );
+    return ProgressUpdate(
+      gachaType: var_gachaType,
+      currentPage: var_currentPage,
+      totalEntriesFetched: var_totalEntriesFetched,
+      completedBannerDetails: var_completedBannerDetails,
+    );
   }
 
   @protected
@@ -475,6 +806,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  int sse_decode_u_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getUint32();
+  }
+
+  @protected
   int sse_decode_u_8(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getUint8();
@@ -486,15 +823,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  int sse_decode_i_32(SseDeserializer deserializer) {
+  BigInt sse_decode_usize(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    return deserializer.buffer.getInt32();
-  }
-
-  @protected
-  bool sse_decode_bool(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return deserializer.buffer.getUint8() != 0;
+    return deserializer.buffer.getBigUint64();
   }
 
   @protected
@@ -504,6 +835,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_String(self.message, serializer);
+  }
+
+  @protected
+  void sse_encode_StreamSink_progress_update_Sse(
+    RustStreamSink<ProgressUpdate> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(
+      self.setupAndSerialize(
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_progress_update,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+      ),
+      serializer,
+    );
   }
 
   @protected
@@ -530,9 +878,96 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_banner_summary(BannerSummary self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.title, serializer);
+    sse_encode_i_32(self.pity, serializer);
+    sse_encode_String(self.last5Star, serializer);
+    sse_encode_i_32(self.last5StarPity, serializer);
+    sse_encode_bool(self.isGuaranteed, serializer);
+    sse_encode_i_32(self.totalWishes, serializer);
+    sse_encode_list_five_star_history(self.history5Star, serializer);
+    sse_encode_f_64(self.avgPity, serializer);
+  }
+
+  @protected
+  void sse_encode_bool(bool self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putUint8(self ? 1 : 0);
+  }
+
+  @protected
   void sse_encode_box_autoadd_u_16(int self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_u_16(self, serializer);
+  }
+
+  @protected
+  void sse_encode_completed_banner_info(
+    CompletedBannerInfo self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.gachaType, serializer);
+    sse_encode_usize(self.entriesCount, serializer);
+  }
+
+  @protected
+  void sse_encode_f_64(double self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putFloat64(self);
+  }
+
+  @protected
+  void sse_encode_five_star_history(
+    FiveStarHistory self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.name, serializer);
+    sse_encode_i_32(self.pity, serializer);
+  }
+
+  @protected
+  void sse_encode_i_32(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putInt32(self);
+  }
+
+  @protected
+  void sse_encode_list_banner_summary(
+    List<BannerSummary> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_banner_summary(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_completed_banner_info(
+    List<CompletedBannerInfo> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_completed_banner_info(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_five_star_history(
+    List<FiveStarHistory> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_five_star_history(item, serializer);
+    }
   }
 
   @protected
@@ -553,6 +988,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     if (self != null) {
       sse_encode_box_autoadd_u_16(self, serializer);
     }
+  }
+
+  @protected
+  void sse_encode_progress_update(
+    ProgressUpdate self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.gachaType, serializer);
+    sse_encode_u_32(self.currentPage, serializer);
+    sse_encode_usize(self.totalEntriesFetched, serializer);
+    sse_encode_list_completed_banner_info(
+      self.completedBannerDetails,
+      serializer,
+    );
   }
 
   @protected
@@ -589,6 +1039,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_u_32(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putUint32(self);
+  }
+
+  @protected
   void sse_encode_u_8(int self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putUint8(self);
@@ -600,14 +1056,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_i_32(int self, SseSerializer serializer) {
+  void sse_encode_usize(BigInt self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    serializer.buffer.putInt32(self);
-  }
-
-  @protected
-  void sse_encode_bool(bool self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    serializer.buffer.putUint8(self ? 1 : 0);
+    serializer.buffer.putBigUint64(self);
   }
 }

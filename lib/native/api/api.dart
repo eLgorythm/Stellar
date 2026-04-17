@@ -4,6 +4,7 @@
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import '../frb_generated.dart';
+import '../wish_parser.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'api.freezed.dart';
@@ -30,6 +31,24 @@ Future<String> connectToDevice({
 }) => RustLib.instance.api.crateApiApiConnectToDevice(
   addr: addr,
   storageDir: storageDir,
+);
+
+Stream<ProgressUpdate> performWishImport({
+  required String url,
+  required String storageDir,
+  required String game,
+}) => RustLib.instance.api.crateApiApiPerformWishImport(
+  url: url,
+  storageDir: storageDir,
+  game: game,
+);
+
+Future<List<BannerSummary>> getWishSummary({
+  required String storageDir,
+  required String game,
+}) => RustLib.instance.api.crateApiApiGetWishSummary(
+  storageDir: storageDir,
+  game: game,
 );
 
 Future<StellarState> getCurrentState() =>
