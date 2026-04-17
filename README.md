@@ -23,8 +23,8 @@ This application uses the Self-Pairing technique, where the application acts as 
     - Press **SCAN NOW** in the dialog that appears.
     - Open the game (e.g., Genshin Impact) and go to the **History/Request History** page.
     - Wait for the "Link Retrieved!" notification to appear.
-5. **Copy Link:** Copy the retrieved link and use it on your preferred gacha analysis platform (such as Paimon.moe).
-6. **Import History (Optional):**
+5. **Copy Link:** Copy the retrieved link and use it on your preferred gacha analysis platform.
+6. **Import History:**
     - Use the **IMPORT** button to fetch your history.
     - Once finished, go to the **Statistics** tab to see your Pity Counter and detailed 5-star history.
 
