@@ -2,7 +2,7 @@
 
 Dokumen ini merangkum alur kerja dan detail implementasi kode pada `pair.rs` yang telah berhasil melakukan pairing dengan Android Wireless Debugging.
 
-## 1. Arsitektur Keamanan Utama
+## 1. Arsitektur Keamanan & Protokol
 Proses pairing menggunakan empat lapis keamanan:
 1.  **TLS 1.3 (BoringSSL):** Enkripsi transport dasar dengan sertifikat *self-signed*.
 2.  **SPAKE2 (Password-Authenticated Key Exchange):** Pertukaran kunci aman menggunakan PIN pairing dan EKM.
@@ -10,6 +10,13 @@ Proses pairing menggunakan empat lapis keamanan:
 4.  **AES-128-GCM:** Enkripsi payload data identitas perangkat (`PeerInfo`).
 
 ## 2. Analisis Fungsi-Demi-Fungsi
+
+### `mDNS Discovery` (Discovery Phase)
+**Tujuan:** Menemukan port layanan ADB yang berubah secara dinamis setiap kali Wireless Debugging diaktifkan.
+- **Service Types:** 
+    - `_adb-tls-pairing._tcp`: Digunakan untuk proses pairing awal.
+    - `_adb-tls-connect._tcp`: Digunakan untuk koneksi ADB Secure setelah perangkat ter-pairing.
+- **Logic:** Aplikasi melakukan *scanning* pada interface `localhost` untuk mendapatkan port yang tepat sebelum memulai socket TCP.
 
 ### `init_pairing`
 **Tujuan:** Orkes-trator utama seluruh proses pairing.
@@ -84,13 +91,14 @@ Proses pairing menggunakan empat lapis keamanan:
 
 ## 3. Detail Penting Keberhasilan
 Kunci utama yang membuat kode ini akhirnya berhasil adalah:
-1.  **EKM Size 64 Byte:** Menggunakan 64 byte, bukan 32 byte.
-2.  **Null Terminator pada Label/Nama:** Menyertakan `\0` pada `EXPORTED_KEY_LABEL` dan `CLIENT_NAME` agar panjang string sinkron dengan logika `sizeof` di C++.
-3.  **Fixed Struct Padding:** Mengirimkan payload `PeerInfo` tepat 8192 byte (bukan ukuran dinamis) sehingga `adbd` dapat melakukan `memcpy` langsung ke struct internalnya.
-4.  **IV Counter Reset:** Menggunakan IV nol untuk pesan masuk pertama dari Android, meskipun kita baru saja mengirim pesan keluar.
-5.  **Persistensi Sertifikat:** Menyimpan dan memuat sertifikat RSA yang sama untuk proses pairing dan koneksi, memastikan `adbd` mengenali client.
-6.  **Negosiasi STLS yang Benar:** Mengikuti alur `CNXN` (cleartext) -> `STLS` (respons) -> `STLS` (konfirmasi) sebelum melakukan upgrade ke TLS.
-7.  **Verifikasi CNXN Server:** Membaca dan memverifikasi paket `CNXN` yang dikirim server setelah TLS terjalin.
+1.  **Dynamic Port Resolution:** Penggunaan mDNS discovery untuk menangani port Android yang bersifat ephemeral.
+2.  **EKM Size 64 Byte:** Menggunakan 64 byte sesuai standar ADB terbaru, bukan 32 byte.
+3.  **Null Terminator pada Label/Nama:** Menyertakan `\0` pada `EXPORTED_KEY_LABEL` dan `CLIENT_NAME` agar panjang string sinkron dengan logika `sizeof` di C++ pada sisi `adbd`.
+4.  **Fixed Struct Padding:** Mengirimkan payload `PeerInfo` tepat 8192 byte sehingga `adbd` dapat melakukan mapping memori langsung.
+5.  **IV Counter Reset:** Menggunakan IV nol untuk pesan masuk pertama dari Android untuk sinkronisasi state AES-GCM.
+6.  **Persistensi Sertifikat:** Menyimpan RSA Keypair secara persisten di internal storage agar kredensial tetap valid setelah aplikasi di-restart.
+7.  **Negosiasi STLS yang Benar:** Implementasi transisi protokol dari TCP plaintext ke TLS 1.3 melalui handshake `A_STLS`.
+8.  **Verifikasi CNXN Server:** Validasi paket `CNXN` terenkripsi pasca-TLS untuk memastikan integritas sesi ADB.
 
 ## 4. Status Log
 Berdasarkan `Success.md`:
@@ -98,6 +106,10 @@ Berdasarkan `Success.md`:
 - `SPAKE2 Exchange Berhasil!` -> PIN dan EKM cocok.
 - `PEERINFO DECRYPT SUKSES` -> Kunci AES valid dan data identitas Android (GUID) berhasil terbaca.
 - `PAIRING COMPLETE X25519!` -> Proses selesai sepenuhnya.
+
+- **Heads-up Display**: Mengatur `Importance.max` dan `Priority.max` agar notifikasi hasil scan muncul sebagai banner popup di atas game.
+
+- **State Management**: Menggunakan `StellarStatus` (FRB generated enum) untuk mengelola transisi antarmuka secara reaktif antara status Idle, Pairing, Paired, dan Connected.
 
 ## 5. Pemindaian Gacha Link (Logcat Streaming)
 - **Fungsi `scan_gacha_link`**: Menggunakan shell ADB untuk menjalankan `logcat` dengan filter regex yang dioptimalkan.
@@ -115,3 +127,32 @@ Berdasarkan `Success.md`:
 - **Heads-up Display**: Mengatur `Importance.max` dan `Priority.max` agar notifikasi hasil scan muncul sebagai banner popup di atas game.
 - **State Management**: Menggunakan `StellarStatus` (FRB generated enum) untuk mengelola transisi antarmuka secara reaktif antara status Idle, Pairing, Paired, dan Connected.
 - **Estetika Retro**: Penerapan font `VT323` secara konsisten pada komponen status dan output link untuk memperkuat identitas visual aplikasi.
+
+## 8. Pengambilan Riwayat & Kalkulasi Pity (Wish Parser)
+Fitur ini memungkinkan pengguna mengunduh riwayat gacha secara permanen dan menghitung statistik *pity* secara lokal.
+
+### `fetch_and_save_history`
+**Tujuan:** Mengambil data dari API resmi HoYoverse menggunakan URL yang didapat dari scan.
+- **Multi-Game & Region Support:** Otomatis mendeteksi host API (Asia, Global, CN) berdasarkan parameter `region` dan jenis game (`gi`, `hsr`, `zzz`).
+- **Pagination Logic:** Menggunakan parameter `end_id` untuk melakukan *crawling* riwayat dari yang terbaru hingga data terakhir yang tersimpan di lokal (menghindari redundansi).
+- **Incremental Sync:** Hanya menyimpan entri baru ke dalam `wish_{game}.json` menggunakan `HashMap` untuk de-duplikasi ID unik.
+- **Stream Progress:** Mengirimkan update real-time ke Flutter UI menggunakan `StreamSink<ProgressUpdate>` untuk menampilkan progres per banner.
+
+### `calculate_pity`
+**Tujuan:** Menganalisis file JSON untuk menghasilkan ringkasan statistik banner.
+- **Sorting Kronologis:** Mengurutkan entri berdasarkan ID secara numerik (u64) untuk memastikan perhitungan *pity* akurat meskipun data diterima secara acak.
+- **Pity Sharing (Genshin):** Menggabungkan counter antara banner Karakter 1 (301) dan Karakter 2 (400) sesuai mekanisme asli game.
+- **Algoritma Guaranteed:** 
+    - Mendeteksi apakah item bintang 5 terakhir adalah item "Standard" menggunakan daftar konstanta internal.
+    - Jika ya, maka status `is_guaranteed` disetel ke `true` untuk banner event berikutnya.
+- **Statistik Lanjutan:** Menghitung rata-rata *pity* (`avg_pity`) dari seluruh riwayat bintang 5 yang ditemukan.
+
+### Detail Teknis Keberhasilan Parser:
+1.  **ID-Based Integrity:** Menggunakan ID unik dari server sebagai kunci utama, bukan index array, sehingga data tetap valid jika ada penggabungan riwayat lama dan baru.
+2.  **Rate Limit Awareness:** Implementasi delay kecil (200ms) antar request halaman API untuk mencegah blokir IP sementara dari server HoYoverse.
+3.  **UI Consistency:** Pengurutan manual pada hasil akhir `BannerSummary` agar posisi kartu di UI tetap konsisten (Event -> Weapon -> Standard).
+4.  **Base64/URL Sanitization:** Pembersihan otomatis karakter kutipan atau spasi pada URL gacha yang seringkali terbawa dari hasil *copy-paste* atau logcat.
+
+## 9. Keamanan Data Riwayat
+- **Local Storage Only:** Seluruh file `.json` disimpan di direktori internal aplikasi.
+- **Authkey Filtering:** Parameter sensitif dibersihkan dari log sebelum ditampilkan atau disimpan, hanya menyisakan data riwayat publik.
