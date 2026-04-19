@@ -33,6 +33,24 @@ Future<String> connectToDevice({
   storageDir: storageDir,
 );
 
+Future<BigInt> importLocalJson({
+  required String jsonContent,
+  required String storageDir,
+  required String game,
+}) => RustLib.instance.api.crateApiApiImportLocalJson(
+  jsonContent: jsonContent,
+  storageDir: storageDir,
+  game: game,
+);
+
+Future<String> exportLocalJson({
+  required String storageDir,
+  required String game,
+}) => RustLib.instance.api.crateApiApiExportLocalJson(
+  storageDir: storageDir,
+  game: game,
+);
+
 Stream<ProgressUpdate> performWishImport({
   required String url,
   required String storageDir,

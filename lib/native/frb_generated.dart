@@ -67,7 +67,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.11.1';
 
   @override
-  int get rustContentHash => 1648520155;
+  int get rustContentHash => 1130694904;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -85,6 +85,11 @@ abstract class RustLibApi extends BaseApi {
 
   Stream<StellarStatus> crateApiApiCreateStatusStream();
 
+  Future<String> crateApiApiExportLocalJson({
+    required String storageDir,
+    required String game,
+  });
+
   Future<StellarState> crateApiApiGetCurrentState();
 
   Future<String> crateApiApiGetGachaLink({
@@ -93,6 +98,12 @@ abstract class RustLibApi extends BaseApi {
   });
 
   Future<List<BannerSummary>> crateApiApiGetWishSummary({
+    required String storageDir,
+    required String game,
+  });
+
+  Future<BigInt> crateApiApiImportLocalJson({
+    required String jsonContent,
     required String storageDir,
     required String game,
   });
@@ -190,6 +201,40 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<String> crateApiApiExportLocalJson({
+    required String storageDir,
+    required String game,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(storageDir, serializer);
+          sse_encode_String(game, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 3,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_String,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiApiExportLocalJsonConstMeta,
+        argValues: [storageDir, game],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiApiExportLocalJsonConstMeta => const TaskConstMeta(
+    debugName: "export_local_json",
+    argNames: ["storageDir", "game"],
+  );
+
+  @override
   Future<StellarState> crateApiApiGetCurrentState() {
     return handler.executeNormal(
       NormalTask(
@@ -198,7 +243,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 3,
+            funcId: 4,
             port: port_,
           );
         },
@@ -230,7 +275,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 4,
+            funcId: 5,
             port: port_,
           );
         },
@@ -264,7 +309,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 5,
+            funcId: 6,
             port: port_,
           );
         },
@@ -285,6 +330,42 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   );
 
   @override
+  Future<BigInt> crateApiApiImportLocalJson({
+    required String jsonContent,
+    required String storageDir,
+    required String game,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(jsonContent, serializer);
+          sse_encode_String(storageDir, serializer);
+          sse_encode_String(game, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 7,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_usize,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiApiImportLocalJsonConstMeta,
+        argValues: [jsonContent, storageDir, game],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiApiImportLocalJsonConstMeta => const TaskConstMeta(
+    debugName: "import_local_json",
+    argNames: ["jsonContent", "storageDir", "game"],
+  );
+
+  @override
   Future<void> crateApiApiInitApp() {
     return handler.executeNormal(
       NormalTask(
@@ -293,7 +374,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 6,
+            funcId: 8,
             port: port_,
           );
         },
@@ -327,7 +408,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 7,
+            funcId: 9,
             port: port_,
           );
         },
@@ -366,7 +447,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 8,
+              funcId: 10,
               port: port_,
             );
           },

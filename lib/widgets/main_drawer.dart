@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:stellar/screens/home.dart';
 import 'package:stellar/screens/wish_counter.dart';
 import 'package:stellar/screens/vision.dart';
+import 'package:stellar/screens/import_data.dart';
 import 'package:stellar/screens/about.dart';
+import 'package:stellar/screens/tutorial.dart';
 
 class MainDrawer extends StatelessWidget {
   final String storageDir;
@@ -44,11 +46,27 @@ class MainDrawer extends StatelessWidget {
             ),
           ),
           ListTile(
+            leading: const Icon(Icons.upload_file_rounded),
+            title: const Text('Import/Export'),
+            onTap: () => Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => ImportDataPage(storageDir: storageDir)),
+            ),
+          ),
+          ListTile(
             leading: const Icon(Icons.remove_red_eye_rounded),
             title: const Text("What's your Vision?"),
             onTap: () => Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (context) => VisionPage(storageDir: storageDir)),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.lightbulb_outline_rounded),
+            title: const Text('Tutorial'),
+            onTap: () => Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => TutorialPage(storageDir: storageDir)),
             ),
           ),
           const Spacer(),

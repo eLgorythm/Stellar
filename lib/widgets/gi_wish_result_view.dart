@@ -123,11 +123,39 @@ class GIWishResultView extends StatelessWidget {
                         children: [
                           const Text("Last 5-Star:",
                               style: TextStyle(fontSize: 12, color: Colors.white54)),
-                          Text(
-                              isEmpty ? data.last5Star : "${data.last5Star} (${data.last5StarPity} Pity)",
-                              style: TextStyle(
-                                  fontSize: 15,
-                                  color: isEmpty ? Colors.white24 : Colors.orangeAccent, fontWeight: FontWeight.w500)),
+                          if (isEmpty)
+                            Text(data.last5Star,
+                                style: const TextStyle(
+                                    fontSize: 15,
+                                    color: Colors.white24,
+                                    fontWeight: FontWeight.w500))
+                          else
+                            Text.rich(
+                              TextSpan(
+                                style: const TextStyle(
+                                    fontSize: 15, fontWeight: FontWeight.w500),
+                                children: [
+                                  TextSpan(
+                                      text: data.last5Star,
+                                      style: const TextStyle(color: Colors.orangeAccent)),
+                                  const TextSpan(
+                                      text: " (",
+                                      style: TextStyle(color: Colors.white38)),
+                                  TextSpan(
+                                    text: "${data.last5StarPity}",
+                                    style: TextStyle(
+                                        color: data.last5StarPity < 30
+                                            ? Colors.greenAccent
+                                            : (data.last5StarPity > 75
+                                                ? Colors.redAccent
+                                                : Colors.orangeAccent)),
+                                  ),
+                                  const TextSpan(
+                                      text: " Pity)",
+                                      style: TextStyle(color: Colors.white38, fontSize: 13)),
+                                ],
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -162,35 +190,102 @@ class GIWishResultView extends StatelessWidget {
         backgroundColor: const Color(0xFF24243D), // Sesuai warna di gambar
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         contentPadding: const EdgeInsets.all(20),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(data.title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-            const Divider(color: Colors.white10, height: 24),
-            _buildDetailRow("5 ★", data.history5Star.length.toString(), "${((data.history5Star.length / data.totalWishes) * 100).toStringAsFixed(2)}%", data.avgPity.toStringAsFixed(1)),
-            const SizedBox(height: 20),
-            const Text("History", style: TextStyle(color: Colors.white54, fontSize: 12)),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: data.history5Star.map((h) => _buildPill(h)).toList(),
-            ),
-          ],
+        content: SizedBox(
+          width: MediaQuery.of(context).size.width * 0.9,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(data.title, 
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
+                  ),
+                  if (data.title.contains("Character"))
+                    const Tooltip(
+                      message: "Pity shared between Event 1 & 2",
+                      child: Icon(Icons.info_outline, color: Colors.white38, size: 18),
+                    ),
+                ],
+              ),
+              const Divider(color: Colors.white10, height: 32),
+              
+              // Statistik Section
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildStatBox("Total 5★", data.history5Star.length.toString(), Icons.star_rounded, Colors.orangeAccent),
+                  _buildStatBox("Avg. Pity", data.avgPity.toStringAsFixed(1), Icons.auto_graph_rounded, const Color(0xFFAEEA00)),
+                  _buildStatBox("Luck Rate", "${((data.history5Star.length / data.totalWishes) * 100).toStringAsFixed(1)}%", Icons.bolt_rounded, Colors.cyanAccent),
+                ],
+              ),
+              
+              const SizedBox(height: 24),
+              
+              // Pity Progress Status
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.03),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.track_changes_rounded, size: 16, color: Colors.white.withOpacity(0.5)),
+                    const SizedBox(width: 8),
+                    Text(
+                      "Current Pity: ${data.pity} / ${data.type == BannerType.weapon ? 80 : 90}",
+                      style: const TextStyle(color: Colors.white70, fontSize: 13),
+                    ),
+                    const Spacer(),
+                    Text(
+                      "${(data.type == BannerType.weapon ? 80 : 90) - data.pity} to Hard Pity",
+                      style: const TextStyle(color: Colors.white38, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
+              const Text("Pull History (5★ Only)", 
+                style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+              const SizedBox(height: 12),
+              
+              // History List (Scrollable if too long)
+              Flexible(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.3),
+                  child: SingleChildScrollView(
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 10,
+                      children: data.history5Star.isEmpty 
+                        ? [const Text("No 5-star history found.", style: TextStyle(color: Colors.white24, fontSize: 13))]
+                        : data.history5Star.map((h) => _buildPill(h)).toList(),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Center(
+                child: TextButton(onPressed: () => Navigator.pop(context), child: const Text("CLOSE")),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildDetailRow(String title, String total, String percent, String avg) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _buildStatBox(String label, String value, IconData icon, Color color) {
+    return Column(
       children: [
-        Text(title, style: const TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold)),
-        Text(total, style: const TextStyle(color: Colors.white)),
-        Text(percent, style: const TextStyle(color: Colors.orangeAccent)),
-        Text(avg, style: const TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold)),
+        Icon(icon, size: 20, color: color.withOpacity(0.8)),
+        const SizedBox(height: 6),
+        Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white, fontFamily: 'VT323')),
+        Text(label, style: const TextStyle(fontSize: 10, color: Colors.white38)),
       ],
     );
   }

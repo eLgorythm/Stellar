@@ -22,15 +22,17 @@ class WishResultWrapper extends StatelessWidget {
       children: [
         // Dropdown Card Global
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
           child: Card(
+            margin: EdgeInsets.zero,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
             color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
                   value: selectedGame,
+                  isDense: true,
                   icon: const Icon(Icons.arrow_drop_down_rounded),
                   isExpanded: true,
                   borderRadius: BorderRadius.circular(20),

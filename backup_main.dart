@@ -7,6 +7,7 @@ import 'package:stellar/native/frb_generated.dart';
 import 'package:stellar/native/api/api.dart';
 import 'package:stellar/services/notification_service.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:stellar/screens/tutorial_page.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -474,6 +475,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         centerTitle: false,
         elevation: 0,
         actions: [
+          IconButton(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const TutorialPage()),
+            ),
+            icon: const Icon(Icons.help_outline_rounded),
+          ),
           IconButton(
             onPressed: _showHistoryDialog,
             icon: const Icon(Icons.history_rounded),
