@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:stellar/widgets/wish_banner.dart';
 import 'package:stellar/native/wish_parser.dart';
+import 'package:stellar/widgets/gi_detail.dart';
 
 class GIWishResultView extends StatelessWidget {
   final List<WishBanner> results;
@@ -269,8 +270,29 @@ class GIWishResultView extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              Center(
-                child: TextButton(onPressed: () => Navigator.pop(context), child: const Text("CLOSE")),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  TextButton(onPressed: () => Navigator.pop(context), child: const Text("CLOSE")),
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context); // Tutup dialog
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => GIDetailPage(banner: data),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.analytics_outlined, size: 18),
+                    label: const Text("FULL DETAILS"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF9575CD),
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

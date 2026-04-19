@@ -98,6 +98,8 @@ class _WishCounterPageState extends State<WishCounterPage> with UIUtils {
             totalWishes: s.totalWishes,
             history5Star: s.history5Star,
             avgPity: s.avgPity,
+            total4Star: s.total4Star,
+            pity4Star: s.pity4Star,
           ));
         }
         _stage = WishStage.results;

@@ -502,8 +502,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   BannerSummary dco_decode_banner_summary(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 8)
-      throw Exception('unexpected arr length: expect 8 but see ${arr.length}');
+    if (arr.length != 10)
+      throw Exception('unexpected arr length: expect 10 but see ${arr.length}');
     return BannerSummary(
       title: dco_decode_String(arr[0]),
       pity: dco_decode_i_32(arr[1]),
@@ -513,6 +513,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       totalWishes: dco_decode_i_32(arr[5]),
       history5Star: dco_decode_list_five_star_history(arr[6]),
       avgPity: dco_decode_f_64(arr[7]),
+      total4Star: dco_decode_i_32(arr[8]),
+      pity4Star: dco_decode_i_32(arr[9]),
     );
   }
 
@@ -550,11 +552,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   FiveStarHistory dco_decode_five_star_history(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 2)
-      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
     return FiveStarHistory(
       name: dco_decode_String(arr[0]),
       pity: dco_decode_i_32(arr[1]),
+      time: dco_decode_String(arr[2]),
     );
   }
 
@@ -714,6 +717,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_totalWishes = sse_decode_i_32(deserializer);
     var var_history5Star = sse_decode_list_five_star_history(deserializer);
     var var_avgPity = sse_decode_f_64(deserializer);
+    var var_total4Star = sse_decode_i_32(deserializer);
+    var var_pity4Star = sse_decode_i_32(deserializer);
     return BannerSummary(
       title: var_title,
       pity: var_pity,
@@ -723,6 +728,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       totalWishes: var_totalWishes,
       history5Star: var_history5Star,
       avgPity: var_avgPity,
+      total4Star: var_total4Star,
+      pity4Star: var_pity4Star,
     );
   }
 
@@ -762,7 +769,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_name = sse_decode_String(deserializer);
     var var_pity = sse_decode_i_32(deserializer);
-    return FiveStarHistory(name: var_name, pity: var_pity);
+    var var_time = sse_decode_String(deserializer);
+    return FiveStarHistory(name: var_name, pity: var_pity, time: var_time);
   }
 
   @protected
@@ -969,6 +977,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_i_32(self.totalWishes, serializer);
     sse_encode_list_five_star_history(self.history5Star, serializer);
     sse_encode_f_64(self.avgPity, serializer);
+    sse_encode_i_32(self.total4Star, serializer);
+    sse_encode_i_32(self.pity4Star, serializer);
   }
 
   @protected
@@ -1007,6 +1017,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_String(self.name, serializer);
     sse_encode_i_32(self.pity, serializer);
+    sse_encode_String(self.time, serializer);
   }
 
   @protected

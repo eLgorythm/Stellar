@@ -15,6 +15,8 @@ class BannerSummary {
   final int totalWishes;
   final List<FiveStarHistory> history5Star;
   final double avgPity;
+  final int total4Star;
+  final int pity4Star;
 
   const BannerSummary({
     required this.title,
@@ -25,6 +27,8 @@ class BannerSummary {
     required this.totalWishes,
     required this.history5Star,
     required this.avgPity,
+    required this.total4Star,
+    required this.pity4Star,
   });
 
   @override
@@ -36,7 +40,9 @@ class BannerSummary {
       isGuaranteed.hashCode ^
       totalWishes.hashCode ^
       history5Star.hashCode ^
-      avgPity.hashCode;
+      avgPity.hashCode ^
+      total4Star.hashCode ^
+      pity4Star.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -50,7 +56,9 @@ class BannerSummary {
           isGuaranteed == other.isGuaranteed &&
           totalWishes == other.totalWishes &&
           history5Star == other.history5Star &&
-          avgPity == other.avgPity;
+          avgPity == other.avgPity &&
+          total4Star == other.total4Star &&
+          pity4Star == other.pity4Star;
 }
 
 class CompletedBannerInfo {
@@ -77,11 +85,16 @@ class CompletedBannerInfo {
 class FiveStarHistory {
   final String name;
   final int pity;
+  final String time;
 
-  const FiveStarHistory({required this.name, required this.pity});
+  const FiveStarHistory({
+    required this.name,
+    required this.pity,
+    required this.time,
+  });
 
   @override
-  int get hashCode => name.hashCode ^ pity.hashCode;
+  int get hashCode => name.hashCode ^ pity.hashCode ^ time.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -89,7 +102,8 @@ class FiveStarHistory {
       other is FiveStarHistory &&
           runtimeType == other.runtimeType &&
           name == other.name &&
-          pity == other.pity;
+          pity == other.pity &&
+          time == other.time;
 }
 
 class ProgressUpdate {
