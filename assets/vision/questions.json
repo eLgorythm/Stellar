@@ -1,0 +1,337 @@
+[
+    {
+        "id": 1,
+        "question": "Saat tekanan datang dari berbagai arah, kamu cenderung?",
+        "options": [
+            {
+                "text": "Mencari celah agar tetap bisa bergerak tanpa terjebak",
+                "scores": {
+                    "anemo": 2,
+                    "electro": 1
+                }
+            },
+            {
+                "text": "Fokus menyelesaikan tanggung jawab satu per satu",
+                "scores": {
+                    "geo": 2
+                }
+            },
+            {
+                "text": "Mencoba pendekatan baru yang belum pernah dilakukan",
+                "scores": {
+                    "electro": 2,
+                    "anemo": 1
+                }
+            },
+            {
+                "text": "Mengurai masalah dan memahami pola yang terjadi",
+                "scores": {
+                    "dendro": 2
+                }
+            }
+        ]
+    },
+    {
+        "id": 2,
+        "question": "Jika harus memilih satu hal untuk kamu pertahankan dalam hidup, mana yang paling kamu jaga?",
+        "options": [
+            {
+                "text": "Ruang untuk tetap menjadi diriku sendiri tanpa banyak batasan",
+                "scores": {
+                    "anemo": 2,
+                    "electro": 1
+                }
+            },
+            {
+                "text": "Hal-hal yang sudah aku pegang sejak lama, terutama kepercayaan orang lain",
+                "scores": {
+                    "geo": 2,
+                    "cryo": 1
+                }
+            },
+            {
+                "text": "Kesempatan untuk meninggalkan sesuatu yang berbeda dari orang lain",
+                "scores": {
+                    "electro": 2,
+                    "pyro": 1
+                }
+            },
+            {
+                "text": "Proses untuk terus memahami hal baru dan memperbaiki diri",
+                "scores": {
+                    "dendro": 2,
+                    "hydro": 1
+                }
+            }
+        ]
+    },
+    {
+        "id": 3,
+        "question": "Kamu melihat situasi yang terasa tidak adil. Apa yang paling mungkin kamu lakukan?",
+        "options": [
+            {
+                "text": "Mencoba memahami semua sisi sebelum ikut terlibat",
+                "scores": {
+                    "dendro": 1,
+                    "hydro": 1
+                }
+            },
+            {
+                "text": "Ikut turun tangan jika merasa situasinya sudah melewati batas",
+                "scores": {
+                    "pyro": 2,
+                    "geo": 1
+                }
+            },
+            {
+                "text": "Berusaha menjaga agar situasi tidak semakin memburuk",
+                "scores": {
+                    "hydro": 2,
+                    "cryo": 1
+                }
+            },
+            {
+                "text": "Memilih diam, tapi tetap mengingatnya untuk saat yang tepat",
+                "scores": {
+                    "cryo": 2,
+                    "electro": 1
+                }
+            }
+        ]
+    },
+    {
+        "id": 4,
+        "question": "Perubahan besar tiba-tiba terjadi dalam hidupmu. Apa yang paling mungkin kamu lakukan?",
+        "options": [
+            {
+                "text": "Menyesuaikan diri sambil melihat arah terbaik ke depan",
+                "scores": {
+                    "hydro": 2,
+                    "dendro": 1
+                }
+            },
+            {
+                "text": "Tetap bertahan pada hal-hal yang sudah aku yakini",
+                "scores": {
+                    "geo": 2,
+                    "cryo": 1
+                }
+            },
+            {
+                "text": "Mencoba memanfaatkan situasi untuk membuka kemungkinan baru",
+                "scores": {
+                    "anemo": 1,
+                    "electro": 2
+                }
+            },
+            {
+                "text": "Mengambil waktu untuk memahami situasi sebelum bergerak",
+                "scores": {
+                    "dendro": 2,
+                    "hydro": 1
+                }
+            }
+        ]
+    },
+    {
+        "id": 5,
+        "question": "Dalam sebuah kelompok, kamu biasanya lebih sering?",
+        "options": [
+            {
+                "text": "Tetap di belakang, tapi memastikan semuanya berjalan dengan baik",
+                "scores": {
+                    "cryo": 2,
+                    "hydro": 1
+                }
+            },
+            {
+                "text": "Mengambil inisiatif saat dibutuhkan untuk menjaga arah tim",
+                "scores": {
+                    "geo": 2,
+                    "pyro": 1
+                }
+            },
+            {
+                "text": "Membawa energi agar suasana tetap hidup",
+                "scores": {
+                    "pyro": 2,
+                    "anemo": 1
+                }
+            },
+            {
+                "text": "Memperhatikan situasi dan memberi masukan di waktu yang tepat",
+                "scores": {
+                    "dendro": 2,
+                    "electro": 1
+                }
+            }
+        ]
+    },
+    {
+        "id": 6,
+        "question": "Ketika sesuatu tidak berjalan sesuai harapan, apa yang biasanya kamu lakukan?",
+        "options": [
+            {
+                "text": "Memberi diri waktu, lalu mencoba lagi dengan pendekatan yang berbeda",
+                "scores": {
+                    "electro": 2,
+                    "dendro": 1
+                }
+            },
+            {
+                "text": "Mendorong diri untuk bangkit dan tidak berlama-lama terpuruk",
+                "scores": {
+                    "pyro": 2,
+                    "anemo": 1
+                }
+            },
+            {
+                "text": "Tetap melanjutkan apa yang bisa dilakukan tanpa banyak menunjukkan perasaan",
+                "scores": {
+                    "cryo": 2,
+                    "geo": 1
+                }
+            },
+            {
+                "text": "Mencoba memahami apa yang salah sebelum mengambil langkah berikutnya",
+                "scores": {
+                    "dendro": 2,
+                    "hydro": 1
+                }
+            }
+        ]
+    },
+    {
+        "id": 7,
+        "question": "Dalam berinteraksi dengan orang lain, kamu biasanya?",
+        "options": [
+            {
+                "text": "Berusaha memahami perasaan mereka sebelum bereaksi",
+                "scores": {
+                    "hydro": 2,
+                    "dendro": 1
+                }
+            },
+            {
+                "text": "Menjaga hubungan dengan konsisten, terutama pada orang yang kamu percayai",
+                "scores": {
+                    "geo": 2,
+                    "cryo": 1
+                }
+            },
+            {
+                "text": "Memberi ruang agar masing-masing tetap bisa menjadi diri sendiri",
+                "scores": {
+                    "anemo": 2,
+                    "electro": 1
+                }
+            },
+            {
+                "text": "Membawa suasana yang lebih hidup saat bersama orang lain",
+                "scores": {
+                    "pyro": 2,
+                    "anemo": 1
+                }
+            }
+        ]
+    },
+    {
+        "id": 8,
+        "question": "Jika hidupmu terasa berjalan di tempat, apa reaksimu?",
+        "options": [
+            {
+                "text": "Mencari cara agar bisa keluar dari rutinitas itu",
+                "scores": {
+                    "anemo": 2
+                }
+            },
+            {
+                "text": "Tetap bertahan karena itu bagian dari proses",
+                "scores": {
+                    "geo": 2,
+                    "cryo": 1
+                }
+            },
+            {
+                "text": "Mencari sesuatu yang bisa membuatmu berbeda",
+                "scores": {
+                    "electro": 2
+                }
+            },
+            {
+                "text": "Belajar hal baru untuk membuka jalan lain",
+                "scores": {
+                    "dendro": 2
+                }
+            }
+        ]
+    },
+    {
+        "id": 9,
+        "question": "Saat harus mengambil keputusan besar, apa yang paling sering kamu lakukan?",
+        "options": [
+            {
+                "text": "Mempertimbangkan apa yang paling terasa benar, meski sulit dijelaskan",
+                "scores": {
+                    "electro": 2,
+                    "hydro": 1
+                }
+            },
+            {
+                "text": "Menganalisis kemungkinan yang ada sebelum menentukan langkah",
+                "scores": {
+                    "dendro": 2,
+                    "geo": 1
+                }
+            },
+            {
+                "text": "Berpegang pada hal-hal yang sudah kamu yakini sejak awal",
+                "scores": {
+                    "geo": 2,
+                    "cryo": 1
+                }
+            },
+            {
+                "text": "Mengikuti dorongan untuk segera bertindak tanpa terlalu lama ragu",
+                "scores": {
+                    "pyro": 2,
+                    "anemo": 1
+                }
+            }
+        ]
+    },
+    {
+        "id": 10,
+        "question": "Dalam hidupmu, kapan kamu merasa paling kuat?",
+        "options": [
+            {
+                "text": "Saat bisa menentukan jalan sendiri tanpa banyak bergantung pada orang lain",
+                "scores": {
+                    "anemo": 2,
+                    "electro": 1
+                }
+            },
+            {
+                "text": "Saat mampu bertahan meski keadaan tidak berpihak",
+                "scores": {
+                    "cryo": 2,
+                    "geo": 1
+                }
+            },
+            {
+                "text": "Saat berani mengambil langkah meski penuh risiko",
+                "scores": {
+                    "pyro": 2,
+                    "anemo": 1
+                }
+            },
+            {
+                "text": "Saat memahami situasi dan tahu apa yang harus dilakukan",
+                "scores": {
+                    "dendro": 2,
+                    "hydro": 1
+                }
+            }
+        ]
+    }
+]

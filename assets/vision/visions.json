@@ -1,0 +1,44 @@
+{
+    "anemo": {
+        "title": "Anemo",
+        "subtitle": "Kebebasan & Tanggung Jawab",
+        "quote": "Angin tidak pernah benar-benar berhenti di satu tempat, begitu juga dengan jiwamu yang gelisah.",
+        "description": "Di dunia yang penuh dengan tembok tinggi dan aturan yang mengekang, kamu adalah hembusan yang selalu menemukan celah untuk tetap bergerak. Namun, pahamilah bahwa seperti sang Anemo Archon, kebebasan sejati yang kamu miliki bukanlah tentang melarikan diri dari kenyataan. Visi ini terpancar saat kamu memilih untuk tetap tinggal dan memikul beban yang berat, bukan karena kamu terpaksa, melainkan agar orang-orang di sekitarmu tidak kehilangan langit mereka. Kamu adalah pelindung yang tak terlihat; sayap bagi mereka yang patah hati, dan pemandu bagi mereka yang tersesat di tengah sunyi."
+    },
+    "geo": {
+        "title": "Geo",
+        "subtitle": "Keteguhan & Janji",
+        "quote": "Dunia boleh berubah dan musim boleh berganti, namun kamu adalah batu karang yang menolak untuk terkikis.",
+        "description": "Visi Geo tidak diberikan kepada mereka yang hanya kuat secara fisik, melainkan kepada mereka yang memiliki integritas tak terpatahkan. Bagimu, kata-kata adalah kontrak yang tertulis di atas emas—suci dan mutlak. Kamu tidak butuh sorak-sorai atau pengakuan dunia, karena kamu tahu bahwa fondasi yang paling kokoh adalah yang paling tenang di bawah tanah. Di Teyvat, namamu akan terukir di antara pegunungan purba; sebuah simbol ketenangan di tengah badai, dan bukti bahwa kehormatan adalah satu-satunya harta yang akan tetap abadi saat segalanya menjadi debu."
+    },
+    "electro": {
+        "title": "Electro",
+        "subtitle": "Keabadian & Keunikan",
+        "quote": "Di tengah langit yang kelabu dan riuh rendah dunia, kamu adalah kilatan cahaya yang paling terang sekaligus paling terasing.",
+        "description": "Visi Electro memilihmu bukan karena kekuatanmu, melainkan karena ambisimu untuk menjadi 'abadi' di tengah kefanaan. Keabadianmu bukan berarti hidup selamanya, melainkan keberanianmu untuk menjadi diri sendiri yang tak tertandingi di dunia yang terus memaksa semua orang menjadi sama. Seperti sang Raiden Shogun, kamu mengejar visi yang melampaui batas waktu dan logika manusia biasa. Meski jalan yang kamu tempuh seringkali terasa sunyi dan dingin, ketahuilah bahwa petir hanya akan menyambar mereka yang berani berdiri di puncak tertinggi dan menantang takdir."
+    },
+    "dendro": {
+        "title": "Dendro",
+        "subtitle": "Kebijaksanaan & Pertumbuhan",
+        "quote": "Bagimu, satu jawaban hanyalah benih yang akan menumbuhkan ribuan pertanyaan baru, dan di sanalah letak kekuatanmu.",
+        "description": "Visi Dendro adalah milik mereka yang memahami bahwa pengetahuan adalah akar dari segala bentuk kehidupan dan perubahan. Kamu memiliki kemampuan langka untuk melihat keterkaitan antara hal-hal kecil yang dianggap remeh oleh mata awam. Seperti hutan yang terus tumbuh dalam diam meski harus menembus kegelapan tanah, visimu adalah tentang proses menjadi lebih baik setiap harinya. Kebijaksanaan yang kamu kumpulkan bukanlah senjata untuk menyombongkan diri, melainkan oase bagi mereka yang tersesat dalam kebingungan, memberikan arah di saat semua jalan terasa buntu."
+    },
+    "hydro": {
+        "title": "Hydro",
+        "subtitle": "Keadilan & Kemurnian",
+        "quote": "Air bisa mengikuti bentuk wadahnya dengan lembut, namun ia juga memiliki kekuatan untuk menghancurkan baja yang paling keras.",
+        "description": "Visi Hydro muncul dari idealisme murnimu terhadap kebenaran yang tak bisa ditawar. Kamu adalah pengamat yang tajam, mampu melihat melampaui topeng yang dikenakan orang lain. Dalam pencarianmu akan keadilan, kamu telah belajar bahwa logika dan empati harus mengalir selaras layaknya sungai yang menuju samudera. Di bawah naungan visi ini, kamu berperan sebagai arus yang membersihkan kekacauan dan kebohongan. Kamu memastikan bahwa setiap tetes tindakanmu membawa perubahan nyata, menjernihkan dunia dari ketidakadilan yang keruh."
+    },
+    "pyro": {
+        "title": "Pyro",
+        "subtitle": "Semangat & Pengorbanan",
+        "quote": "Ada api yang menyala hebat di dalam dadamu, sebuah gairah yang tidak akan pernah bisa dipadamkan oleh hujan sederas apa pun.",
+        "description": "Visi Pyro adalah pengakuan langit atas semangatmu yang membara untuk mencapai tujuan, tak peduli seberapa mustahil jalan di depanmu. Kamu adalah tipe orang yang tidak takut terbakar oleh ambisimu sendiri, karena bagimu, hidup tanpa tujuan yang diperjuangkan adalah kematian yang sesungguhnya. Seperti kembang api yang membelah kegelapan malam dengan warna-warni yang indah, kehadiranmu membawa kehangatan dan harapan bagi mereka yang merasa kedinginan. Kamu adalah percikan yang mampu memulai revolusi, mengubah ketiadaan menjadi keberadaan yang penuh arti."
+    },
+    "cryo": {
+        "title": "Cryo",
+        "subtitle": "Ketabahan & Kontradiksi",
+        "quote": "Visi ini diberikan kepada jiwa-jiwa yang menyimpan kehangatan paling tulus, namun terbungkus rapat dalam lapisan es yang tak tersentuh.",
+        "description": "Kamu adalah seseorang yang hidup dalam kontradiksi yang indah—berjuang di antara kewajiban yang dingin dan keinginan hati yang membara. Cryo adalah simbol dari ketangguhanmu melewati musim dingin terpanjang dalam hidupmu tanpa pernah menyerah. Kamu adalah penyintas yang tenang, seseorang yang mampu menelan rasa sakit demi menjaga kedamaian orang lain. Keindahan jiwamu hanya bisa dipahami oleh mereka yang cukup sabar untuk mendekat, menunggu es itu mencair, dan menemukan bahwa di balik sikap diammu, terdapat cinta yang sangat dalam."
+    }
+}
