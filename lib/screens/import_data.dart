@@ -18,7 +18,7 @@ class ImportDataPage extends StatefulWidget {
 
 class _ImportDataPageState extends State<ImportDataPage> with UIUtils {
   String _selectedGame = 'gi';
-  String _selectedVersion = '4.0';
+  String _selectedVersion = '3.0';
   bool _isImporting = false;
   bool _isExporting = false;
   final TextEditingController _uidController = TextEditingController();
@@ -83,6 +83,19 @@ class _ImportDataPageState extends State<ImportDataPage> with UIUtils {
     }
   }
 
+  List<DropdownMenuItem<String>> _buildVersionItems() {
+    List<DropdownMenuItem<String>> items = [
+      const DropdownMenuItem(value: '4.2', child: Text("UIGF v4.2 (Latest)")),
+    ];
+
+    if (_selectedGame == 'gi') {
+      items.insert(0, const DropdownMenuItem(value: '3.0', child: Text("UIGF v3.0 (GENSHIN)")));
+    } else if (_selectedGame == 'hsr') {
+      items.insert(0, const DropdownMenuItem(value: '1.0', child: Text("SRGF v1.0 (HSR)")));
+    }
+    return items;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -102,7 +115,7 @@ class _ImportDataPageState extends State<ImportDataPage> with UIUtils {
             ),
             const SizedBox(height: 8),
             const Text(
-              "Pilih file JSON hasil export (UIGF v3.0 - v4.2) untuk digabungkan dengan data lokal Stellar.",
+              "Pilih file JSON hasil export (UIGF v3.0, v4.2, atau SRGF v1.0) untuk digabungkan dengan data lokal Stellar.",
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.white54),
             ),
@@ -126,7 +139,19 @@ class _ImportDataPageState extends State<ImportDataPage> with UIUtils {
                   DropdownMenuItem(value: 'hsr', child: Text("Honkai: Star Rail")),
                   DropdownMenuItem(value: 'zzz', child: Text("Zenless Zone Zero")),
                 ],
-                onChanged: (v) => setState(() => _selectedGame = v!),
+                onChanged: (v) {
+                  setState(() {
+                    _selectedGame = v!;
+                    // Validasi versi saat ganti game
+                    if (_selectedGame == 'zzz') {
+                      _selectedVersion = '4.2';
+                    } else if (_selectedGame == 'hsr' && _selectedVersion == '3.0') {
+                      _selectedVersion = '1.0';
+                    } else if (_selectedGame == 'gi' && _selectedVersion == '1.0') {
+                      _selectedVersion = '3.0';
+                    }
+                  });
+                },
               ),
             ),
             
@@ -145,12 +170,7 @@ class _ImportDataPageState extends State<ImportDataPage> with UIUtils {
                 isExpanded: true,
                 borderRadius: BorderRadius.circular(20),
                 underline: const SizedBox(),
-                items: const [
-                  DropdownMenuItem(value: '3.0', child: Text("UIGF v3.0 (Legacy)")),
-                  DropdownMenuItem(value: '4.0', child: Text("UIGF v4.0")),
-                  DropdownMenuItem(value: '4.1', child: Text("UIGF v4.1 (ZZZ)")),
-                  DropdownMenuItem(value: '4.2', child: Text("UIGF v4.2 (Latest)")),
-                ],
+                items: _buildVersionItems(),
                 onChanged: (v) => setState(() => _selectedVersion = v!),
               ),
             ),
