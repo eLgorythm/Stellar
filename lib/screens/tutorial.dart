@@ -1,76 +1,106 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:stellar/widgets/main_drawer.dart';
 
-class TutorialStep {
-  final String title;
-  final String description;
-  final IconData icon;
-  const TutorialStep({required this.title, required this.description, required this.icon});
-}
-
-class TutorialPage extends StatelessWidget {
+class TutorialPage extends StatefulWidget {
   final String storageDir;
   const TutorialPage({super.key, required this.storageDir});
 
-  static const List<TutorialStep> _steps = [
-    TutorialStep(
-      title: "Persiapan Sistem",
-      description: "Aktifkan Opsi Developer di pengaturan Android Anda (Ketuk 'Build Number' 7x). Kemudian aktifkan 'Wireless Debugging' di Opsi Developer.",
-      icon: Icons.settings_applications_rounded,
-    ),
-    TutorialStep(
-      title: "Proses Pairing",
-      description: "Buka menu Wireless Debugging > Pair device with pairing code. Masukkan 6-digit kode yang muncul ke dalam notifikasi Stellar yang muncul.",
-      icon: Icons.vibration_rounded,
-    ),
-    TutorialStep(
-      title: "Scanning Link Gacha",
-      description: "Setelah status 'Paired', klik CONNECT, lalu tekan SCAN di jendela yang muncul. Buka riwayat gacha di dalam game (Genshin/HSR/ZZZ), lalu kembali ke Stellar.",
-      icon: Icons.manage_search_rounded,
-    ),
-    TutorialStep(
-      title: "Import Data",
-      description: "Salin link hasil scan, buka menu Wish Counter, pilih game yang sesuai, tempel link tersebut dan tekan IMPORT DATA.",
-      icon: Icons.auto_awesome_rounded,
-    ),
-    TutorialStep(
-    title: "Import From Local File",
-    description: "Kamu dapat upload file lokal untuk memasukkan data lama yang sudah tidak terdeteksi oleh API (lebih dari 6 bulan), lalu digabungkan dengan data baru.",
-    icon: Icons.upload_file_rounded,
-    ),
+  @override
+  State<TutorialPage> createState() => _TutorialPageState();
+}
+
+class _TutorialPageState extends State<TutorialPage> {
+  Map<String, dynamic>? _tutorialData;
+  bool _isLoading = true;
+
+  // Ikon tetap didefinisikan di Dart karena IconData tidak serializable di JSON
+  final List<IconData> _stepIcons = [
+    Icons.settings_applications_rounded,
+    Icons.vibration_rounded,
+    Icons.manage_search_rounded,
+    Icons.auto_awesome_rounded,
+    Icons.upload_file_rounded,
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _loadTutorialData();
+  }
+
+  String _getLangCode() {
+    final code = WidgetsBinding.instance.platformDispatcher.locale.languageCode;
+    if (['id', 'zh', 'ja'].contains(code)) {
+      if (code == 'zh') return 'cn';
+      if (code == 'ja') return 'jp';
+      return code;
+    }
+    return 'en';
+  }
+
+  Future<void> _loadTutorialData() async {
+    try {
+      final lang = _getLangCode();
+      String jsonString;
+      try {
+        jsonString = await rootBundle.loadString('assets/tutorial/tutorial_$lang.json');
+      } catch (_) {
+        jsonString = await rootBundle.loadString('assets/tutorial/tutorial_en.json');
+      }
+      
+      setState(() {
+        _tutorialData = json.decode(jsonString);
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint("Error loading tutorial data: $e");
+      setState(() => _isLoading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_isLoading || _tutorialData == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final data = _tutorialData!;
+    final List<dynamic> stepsData = data['steps'];
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Tutorial", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(data['app_bar'], style: const TextStyle(fontWeight: FontWeight.bold)),
       ),
-      drawer: MainDrawer(storageDir: storageDir),
+      drawer: MainDrawer(storageDir: widget.storageDir),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          _buildHeader(),
+          _buildHeader(data['header_title'], data['header_subtitle']),
           const SizedBox(height: 8),
-          ..._steps.asMap().entries.map((entry) {
+          ...stepsData.asMap().entries.map((entry) {
             int idx = entry.key;
-            TutorialStep step = entry.value;
+            final step = entry.value;
+            // Gunakan ikon berdasarkan urutan index
             return _buildStep(
               context,
               (idx + 1).toString(),
-              step.title,
-              step.description,
-              step.icon,
+              step['title'],
+              step['desc'] ?? step['description'] ?? '',
+              _stepIcons[idx % _stepIcons.length],
             );
           }),
           const SizedBox(height: 32),
-          _buildNote(context),
+          _buildNote(context, data['note']),
         ],
       ),
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(String title, String subtitle) {
     return Column(
       children: [
         Container(
@@ -82,13 +112,13 @@ class TutorialPage extends StatelessWidget {
           child: const Icon(Icons.auto_fix_high_rounded, size: 64, color: Color(0xFFD1C4E9)),
         ),
         const SizedBox(height: 16),
-        const Text(
-          "Cara Menggunakan Stellar",
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+        Text(
+          title,
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
         ),
-        const Text(
-          "Ikuti langkah-langkah di bawah ini",
-          style: TextStyle(color: Colors.white54),
+        Text(
+          subtitle,
+          style: const TextStyle(color: Colors.white54),
         ),
       ],
     );
@@ -140,7 +170,7 @@ class TutorialPage extends StatelessWidget {
     );
   }
 
-  Widget _buildNote(BuildContext context) {
+  Widget _buildNote(BuildContext context, String note) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -148,14 +178,14 @@ class TutorialPage extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.orangeAccent.withOpacity(0.2)),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(Icons.info_outline_rounded, color: Colors.orangeAccent, size: 20),
+          const Icon(Icons.info_outline_rounded, color: Colors.orangeAccent, size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              "Penting: Pastikan HP berada di jaringan Wi-Fi yang sama agar Wireless Debugging bekerja.",
-              style: TextStyle(color: Colors.orangeAccent, fontSize: 12),
+              note,
+              style: const TextStyle(color: Colors.orangeAccent, fontSize: 12),
             ),
           ),
         ],

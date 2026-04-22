@@ -85,9 +85,11 @@ abstract class RustLibApi extends BaseApi {
 
   Stream<StellarStatus> crateApiApiCreateStatusStream();
 
-  Future<String> crateApiApiExportLocalJson({
+  Future<ExportResult> crateApiApiExportLocalJson({
     required String storageDir,
     required String game,
+    required String version,
+    String? uid,
   });
 
   Future<StellarState> crateApiApiGetCurrentState();
@@ -106,6 +108,7 @@ abstract class RustLibApi extends BaseApi {
     required String jsonContent,
     required String storageDir,
     required String game,
+    String? uid,
   });
 
   Future<void> crateApiApiInitApp();
@@ -201,9 +204,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<String> crateApiApiExportLocalJson({
+  Future<ExportResult> crateApiApiExportLocalJson({
     required String storageDir,
     required String game,
+    required String version,
+    String? uid,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -211,6 +216,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(storageDir, serializer);
           sse_encode_String(game, serializer);
+          sse_encode_String(version, serializer);
+          sse_encode_opt_String(uid, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -219,11 +226,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
+          decodeSuccessData: sse_decode_export_result,
           decodeErrorData: sse_decode_AnyhowException,
         ),
         constMeta: kCrateApiApiExportLocalJsonConstMeta,
-        argValues: [storageDir, game],
+        argValues: [storageDir, game, version, uid],
         apiImpl: this,
       ),
     );
@@ -231,7 +238,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiApiExportLocalJsonConstMeta => const TaskConstMeta(
     debugName: "export_local_json",
-    argNames: ["storageDir", "game"],
+    argNames: ["storageDir", "game", "version", "uid"],
   );
 
   @override
@@ -334,6 +341,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required String jsonContent,
     required String storageDir,
     required String game,
+    String? uid,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -342,6 +350,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_String(jsonContent, serializer);
           sse_encode_String(storageDir, serializer);
           sse_encode_String(game, serializer);
+          sse_encode_opt_String(uid, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -354,7 +363,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_AnyhowException,
         ),
         constMeta: kCrateApiApiImportLocalJsonConstMeta,
-        argValues: [jsonContent, storageDir, game],
+        argValues: [jsonContent, storageDir, game, uid],
         apiImpl: this,
       ),
     );
@@ -362,7 +371,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiApiImportLocalJsonConstMeta => const TaskConstMeta(
     debugName: "import_local_json",
-    argNames: ["jsonContent", "storageDir", "game"],
+    argNames: ["jsonContent", "storageDir", "game", "uid"],
   );
 
   @override
@@ -543,6 +552,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  ExportResult dco_decode_export_result(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return ExportResult(
+      content: dco_decode_String(arr[0]),
+      fileName: dco_decode_String(arr[1]),
+    );
+  }
+
+  @protected
   double dco_decode_f_64(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as double;
@@ -552,12 +573,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   FiveStarHistory dco_decode_five_star_history(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 3)
-      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
     return FiveStarHistory(
       name: dco_decode_String(arr[0]),
       pity: dco_decode_i_32(arr[1]),
       time: dco_decode_String(arr[2]),
+      isStandard: dco_decode_bool(arr[3]),
     );
   }
 
@@ -591,6 +613,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as Uint8List;
+  }
+
+  @protected
+  String? dco_decode_opt_String(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_String(raw);
   }
 
   @protected
@@ -759,6 +787,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  ExportResult sse_decode_export_result(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_content = sse_decode_String(deserializer);
+    var var_fileName = sse_decode_String(deserializer);
+    return ExportResult(content: var_content, fileName: var_fileName);
+  }
+
+  @protected
   double sse_decode_f_64(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getFloat64();
@@ -770,7 +806,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_name = sse_decode_String(deserializer);
     var var_pity = sse_decode_i_32(deserializer);
     var var_time = sse_decode_String(deserializer);
-    return FiveStarHistory(name: var_name, pity: var_pity, time: var_time);
+    var var_isStandard = sse_decode_bool(deserializer);
+    return FiveStarHistory(
+      name: var_name,
+      pity: var_pity,
+      time: var_time,
+      isStandard: var_isStandard,
+    );
   }
 
   @protected
@@ -826,6 +868,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var len_ = sse_decode_i_32(deserializer);
     return deserializer.buffer.getUint8List(len_);
+  }
+
+  @protected
+  String? sse_decode_opt_String(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_String(deserializer));
+    } else {
+      return null;
+    }
   }
 
   @protected
@@ -1004,6 +1057,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_export_result(ExportResult self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.content, serializer);
+    sse_encode_String(self.fileName, serializer);
+  }
+
+  @protected
   void sse_encode_f_64(double self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putFloat64(self);
@@ -1018,6 +1078,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.name, serializer);
     sse_encode_i_32(self.pity, serializer);
     sse_encode_String(self.time, serializer);
+    sse_encode_bool(self.isStandard, serializer);
   }
 
   @protected
@@ -1070,6 +1131,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.length, serializer);
     serializer.buffer.putUint8List(self);
+  }
+
+  @protected
+  void sse_encode_opt_String(String? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_String(self, serializer);
+    }
   }
 
   @protected

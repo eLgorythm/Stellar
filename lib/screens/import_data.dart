@@ -18,8 +18,10 @@ class ImportDataPage extends StatefulWidget {
 
 class _ImportDataPageState extends State<ImportDataPage> with UIUtils {
   String _selectedGame = 'gi';
+  String _selectedVersion = '4.0';
   bool _isImporting = false;
   bool _isExporting = false;
+  final TextEditingController _uidController = TextEditingController();
 
   void _importFromJson() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -37,6 +39,7 @@ class _ImportDataPageState extends State<ImportDataPage> with UIUtils {
           jsonContent: content,
           storageDir: widget.storageDir,
           game: _selectedGame,
+          uid: _uidController.text.isEmpty ? null : _uidController.text,
         );
 
         showSnackBar("Success! Berhasil mengimpor $addedCount entri baru.");
@@ -51,20 +54,22 @@ class _ImportDataPageState extends State<ImportDataPage> with UIUtils {
   void _exportToJson() async {
     setState(() => _isExporting = true);
     try {
-      // 1. Ambil data JSON terformat dari Rust
-      final jsonContent = await RustLib.instance.api.crateApiApiExportLocalJson(
+      // 1. Ambil data JSON terformat dari Rust menggunakan struct ExportResult
+      final exportResult = await RustLib.instance.api.crateApiApiExportLocalJson(
         storageDir: widget.storageDir,
         game: _selectedGame,
+        version: _selectedVersion,
+        uid: _uidController.text.isEmpty ? null : _uidController.text,
       );
 
       // Convert String content to Uint8List for mobile compatibility
-      final Uint8List bytes = utf8.encode(jsonContent);
+      final Uint8List bytes = utf8.encode(exportResult.content);
 
       // 2. Gunakan FilePicker untuk menentukan lokasi simpan
       // Di Android/iOS, parameter 'bytes' wajib diisi
       await FilePicker.platform.saveFile(
         dialogTitle: 'Simpan file export:',
-        fileName: 'stellar_export_${_selectedGame}_${DateTime.now().millisecondsSinceEpoch}.json',
+        fileName: exportResult.fileName,
         type: FileType.custom,
         allowedExtensions: ['json'],
         bytes: bytes,
@@ -82,7 +87,7 @@ class _ImportDataPageState extends State<ImportDataPage> with UIUtils {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Import Data", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("Import/Export", style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       drawer: MainDrawer(storageDir: widget.storageDir),
       body: Padding(
@@ -90,26 +95,20 @@ class _ImportDataPageState extends State<ImportDataPage> with UIUtils {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const SizedBox(height: 20),
-            Icon(
-              Icons.drive_folder_upload_rounded,
-              size: 80,
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
-            ),
             const SizedBox(height: 24),
             const Text(
-              "Impor Riwayat Gacha",
+              "Import/Export History",
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             const Text(
-              "Pilih file JSON hasil export (UIGF/SRGF) untuk digabungkan dengan data lokal Stellar.",
+              "Pilih file JSON hasil export (UIGF v3.0 - v4.2) untuk digabungkan dengan data lokal Stellar.",
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.white54),
             ),
             const SizedBox(height: 40),
             
-            // Game Selector
+            // Selector Row: Game
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
@@ -128,6 +127,60 @@ class _ImportDataPageState extends State<ImportDataPage> with UIUtils {
                   DropdownMenuItem(value: 'zzz', child: Text("Zenless Zone Zero")),
                 ],
                 onChanged: (v) => setState(() => _selectedGame = v!),
+              ),
+            ),
+            
+            const SizedBox(height: 12),
+
+            // Selector Row: UIGF Version
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainer,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: DropdownButton<String>(
+                value: _selectedVersion,
+                icon: const Icon(Icons.settings_outlined, size: 20),
+                isExpanded: true,
+                borderRadius: BorderRadius.circular(20),
+                underline: const SizedBox(),
+                items: const [
+                  DropdownMenuItem(value: '3.0', child: Text("UIGF v3.0 (Legacy)")),
+                  DropdownMenuItem(value: '4.0', child: Text("UIGF v4.0")),
+                  DropdownMenuItem(value: '4.1', child: Text("UIGF v4.1 (ZZZ)")),
+                  DropdownMenuItem(value: '4.2', child: Text("UIGF v4.2 (Latest)")),
+                ],
+                onChanged: (v) => setState(() => _selectedVersion = v!),
+              ),
+            ),
+            
+            const SizedBox(height: 12),
+
+            // Selector Row: UID Input
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainer,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: TextField(
+                controller: _uidController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  hintText: "UID Pemain (Opsional)",
+                  border: InputBorder.none,
+                  icon: Icon(Icons.person_outline_rounded, size: 20),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8.0),
+              child: Text(
+                "Silakan isi UID untuk kompatibilitas dengan aplikasi lain, atau biarkan kosong jika tidak diperlukan.",
+                style: TextStyle(fontSize: 11, color: Colors.white38),
+                textAlign: TextAlign.start,
               ),
             ),
             

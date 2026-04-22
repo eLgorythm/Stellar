@@ -29,14 +29,56 @@ class _VisionPageState extends State<VisionPage> {
   };
 
   final Map<String, Color> _elementColors = {
-    'anemo': const Color(0xFFAEEA00),
-    'geo': const Color(0xFFFFD54F),
-    'electro': const Color(0xFFB388FF),
-    'dendro': const Color(0xFF81C784),
-    'hydro': const Color(0xFF4FC3F7),
-    'pyro': const Color(0xFFFF8A65),
-    'cryo': const Color(0xFF80DEEA),
+    'anemo': const Color(0xFF72E2C2), // Teal/Mint khas Anemo
+    'geo': const Color(0xFFFFB13F),   // Amber khas Geo
+    'electro': const Color(0xFFD9B1FF), // Soft Purple khas Electro
+    'dendro': const Color(0xFFA5C83B),  // Grass Green khas Dendro
+    'hydro': const Color(0xFF02C0FF),   // Azure Blue khas Hydro
+    'pyro': const Color(0xFFFF9C33),    // Fiery Orange khas Pyro
+    'cryo': const Color(0xFFA0E9FB),    // Icy Light Blue khas Cryo
   };
+
+  // Map untuk lokalisasi teks UI
+  final Map<String, Map<String, String>> _i18n = {
+    'en': {
+      'title': "What's your Vision?",
+      'loading': "Loading...",
+      'question_label': "QUESTION",
+      'result_label': "Your Vision is",
+      'retry_button': "RETRY TEST",
+    },
+    'id': {
+      'title': "What's your Vision?",
+      'loading': "Loading...",
+      'question_label': "PERTANYAAN",
+      'result_label': "Vision Kamu adalah",
+      'retry_button': "ULANGI TES",
+    },
+    'cn': {
+      'title': "你的神之眼是什么？",
+      'loading': "加载中...",
+      'question_label': "问题",
+      'result_label': "你的神之眼是",
+      'retry_button': "重新测试",
+    },
+    'jp': {
+      'title': "あなたの神の目は？",
+      'loading': "読み込み中...",
+      'question_label': "質問",
+      'result_label': "あなたの神の目は",
+      'retry_button': "もう一度テストする",
+    }
+  };
+
+  String _getLangCode() {
+    final code = View.of(context).platformDispatcher.locale.languageCode;
+    if (['id', 'zh', 'ja'].contains(code)) {
+      if (code == 'zh') return 'cn';
+      if (code == 'ja') return 'jp';
+      return code;
+    }
+    return 'en'; // Default
+  }
 
   @override
   void initState() {
@@ -46,11 +88,14 @@ class _VisionPageState extends State<VisionPage> {
 
   Future<void> _loadQuizData() async {
     try {
-      final String qContent = await rootBundle.loadString('assets/vision/questions.json');
-      final String rContent = await rootBundle.loadString('assets/vision/visions.json');
+      final String lang = _getLangCode();
+      // Memuat file berdasarkan bahasa sistem
+      final String qContent = await rootBundle.loadString('assets/vision/questions_$lang.json');
+      final String rContent = await rootBundle.loadString('assets/vision/visions_$lang.json');
       
       setState(() {
         _questions = json.decode(qContent);
+        _questions.shuffle(); // Mengacak pertanyaan saat pertama kali dimuat
         _resultData = json.decode(rContent);
         _isLoading = false;
       });
@@ -83,17 +128,19 @@ class _VisionPageState extends State<VisionPage> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
+      final lang = _getLangCode();
       return Scaffold(
-        appBar: AppBar(title: const Text("Loading...")),
+        appBar: AppBar(title: Text(_i18n[lang]!['loading']!)),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     final bool isQuizFinished = _currentQuestionIndex >= _questions.length;
+    final lang = _getLangCode();
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("What's your Vision?", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(_i18n[lang]!['title']!, style: const TextStyle(fontWeight: FontWeight.bold)),
       ),
       drawer: MainDrawer(storageDir: widget.storageDir),
       body: Padding(
@@ -110,15 +157,26 @@ class _VisionPageState extends State<VisionPage> {
 
   Widget _buildQuiz() {
     final question = _questions[_currentQuestionIndex];
+    final lang = _getLangCode();
     return Column(
       key: ValueKey(_currentQuestionIndex),
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
-          "PERTANYAAN ${_currentQuestionIndex + 1}",
+          "${_i18n[lang]!['question_label']} ${_currentQuestionIndex + 1} / ${_questions.length}",
           style: const TextStyle(fontFamily: 'VT323', fontSize: 24, color: Color(0xFFD1C4E9)),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 12),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: LinearProgressIndicator(
+            value: (_currentQuestionIndex + 1) / _questions.length,
+            backgroundColor: Colors.white10,
+            color: const Color(0xFFD1C4E9),
+            minHeight: 4,
+          ),
+        ),
+        const SizedBox(height: 36),
         Text(
           question['question'],
           textAlign: TextAlign.center,
@@ -153,16 +211,24 @@ class _VisionPageState extends State<VisionPage> {
     final String element = _getHighestElement();
     final data = _resultData[element]!;
     final Color elementColor = _elementColors[element] ?? Colors.white;
+    final lang = _getLangCode();
 
     return SingleChildScrollView(
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.auto_awesome, size: 64, color: Color(0xFFD1C4E9)),
+            Image.asset(
+              'assets/images/$element.webp',
+              height: 120,
+              width: 120,
+              // Fallback jika file gambar tidak ditemukan
+              errorBuilder: (context, error, stackTrace) => 
+                  Icon(Icons.auto_awesome, size: 80, color: elementColor),
+            ),
             const SizedBox(height: 24),
             Text(
-              "Vision Kamu adalah ${data['title']}",
+              "${_i18n[lang]!['result_label']} ${data['title']}",
               style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: elementColor),
             ),
             const SizedBox(height: 4),
@@ -202,9 +268,10 @@ class _VisionPageState extends State<VisionPage> {
               onPressed: () => setState(() {
                 _currentQuestionIndex = 0;
                 _scores.updateAll((key, value) => 0);
+                _questions.shuffle(); // Mengacak kembali saat mengulangi tes
               }),
               icon: const Icon(Icons.refresh_rounded),
-              label: const Text("ULANGI TES"),
+              label: Text(_i18n[lang]!['retry_button']!),
             ),
           ],
         ),

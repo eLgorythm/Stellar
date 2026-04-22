@@ -1,0 +1,30 @@
+{
+    "app_name": "STELLAR",
+    "tagline": "Between the stars and unseen destinies, every choice holds a story.",
+    "description": {
+        "summary": "Stellar serves as your journey's companion—helping you understand the traces of hope, luck, and decisions you have made.",
+        "core_function": "Designed to analyze wish history simply yet meaningfully. From pity calculations to a glimpse of your luck, Stellar transforms data into insights you can feel, not just numbers.",
+        "experience": "Beyond that, Stellar brings an experience inspired by the world of Teyvat—where every individual possesses their own 'Vision.' Through reflective and explorative features, you can see another side of yourself, as if your destiny itself is speaking.",
+        "philosophy": "Stellar is not just a tool, but a small mirror reflecting your journey among the stars."
+    },
+    "privacy_policy": {
+        "storage": "Local Device Only",
+        "data_collection": "None",
+        "statement": "All data you use stays on your device. No external storage, no personal data collection—because this journey belongs entirely to you."
+    },
+    "technical_details": {
+        "version": "1.20.4",
+        "credits": {
+            "developer": "elfnd",
+            "frameworks": [
+                "Flutter",
+                "Rust"
+            ]
+        },
+        "license": {
+            "type": "MIT License",
+            "terms": "You are free to use, modify, and distribute this software with proper attribution."
+        },
+        "repository": "https://github.com/eLgorythm/Stellar"
+    }
+}

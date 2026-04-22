@@ -6,6 +6,8 @@ class GIDetailPage extends StatelessWidget {
   final WishBanner banner;
 
   const GIDetailPage({super.key, required this.banner});
+  bool get _isEventBanner =>
+      banner.title.contains("Character") || banner.title.contains("Weapon");
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +43,7 @@ class GIDetailPage extends StatelessWidget {
             const SizedBox(height: 32),
             const Text("Detailed Stats", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            _buildStatsGrid(),
+            _buildStatsGrid(maxPity5),
             const SizedBox(height: 32),
             const Text("5-Star Pull Logs", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
@@ -106,19 +108,51 @@ class GIDetailPage extends StatelessWidget {
     );
   }
 
-  Widget _buildStatsGrid() {
+  Widget _buildStatsGrid(int maxPity5) {
+    // Hitung Win Rate 50/50
+    String winRate = "N/A";
+    if (_isEventBanner && banner.history5Star.isNotEmpty) {
+      int totalFlips = 0;
+      int wins = 0;
+
+      for (int i = 0; i < banner.history5Star.length; i++) {
+        // Jika pull sebelumnya (i+1) adalah item standar, maka pull saat ini adalah jaminan (guaranteed).
+        // Menghitung rate saat pemain tidak dalam kondisi guaranteed.
+        bool wasGuaranteed = i + 1 < banner.history5Star.length && banner.history5Star[i + 1].isStandard;
+        
+        if (!wasGuaranteed) {
+          totalFlips++;
+          if (!banner.history5Star[i].isStandard) {
+            wins++;
+          }
+        }
+      }
+      if (totalFlips > 0) {
+        winRate = "${((wins / totalFlips) * 100).toStringAsFixed(1)}%";
+      }
+    }
+
+    final int totalPrimos = banner.totalWishes * 160;
+    final int toHardPityPrimos = (maxPity5 - banner.pity) * 160;
+    
+    // Formatter sederhana untuk angka ribuan
+    String formatNumber(int number) => number.toString().replaceAllMapped(
+        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},');
+
     return GridView.count(
       crossAxisCount: 2,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      childAspectRatio: 2.2,
+      childAspectRatio: 2.4,
       mainAxisSpacing: 12,
       crossAxisSpacing: 12,
       children: [
         _buildStatTile("Average 5★", "${banner.avgPity.toStringAsFixed(1)} pulls"),
         _buildStatTile("Luck Rate (5★)", "${((banner.history5Star.length / banner.totalWishes) * 100).toStringAsFixed(2)}%"),
-        _buildStatTile("Luck Rate (4★)", "${((banner.total4Star / banner.totalWishes) * 100).toStringAsFixed(2)}%"),
+        _buildStatTile(_isEventBanner && banner.title.contains("Weapon") ? "75/25 Win Rate" : "50/50 Win Rate", winRate),
         _buildStatTile("Next Status", banner.isGuaranteed ? "Guaranteed" : "50/50 Chance"),
+        _buildStatTile("Primogems Spent", "${formatNumber(totalPrimos)} ✦"),
+        _buildStatTile("To Hard Pity", "${formatNumber(toHardPityPrimos)} ✦"),
       ],
     );
   }
@@ -146,24 +180,80 @@ class GIDetailPage extends StatelessWidget {
     if (banner.history5Star.isEmpty) return const Text("No 5-star history found.", style: TextStyle(color: Colors.white24));
 
     return Column(
-      children: banner.history5Star.map((h) => Card(
-        margin: const EdgeInsets.only(bottom: 8),
-        color: Colors.white.withOpacity(0.02),
-        child: ListTile(
-          leading: const Icon(Icons.stars, color: Colors.orangeAccent),
-          title: Text(h.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-          subtitle: Text(h.time, style: const TextStyle(fontSize: 11, color: Colors.white38)),
-          trailing: Text(
-            "${h.pity} Pity",
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: h.pity < 30
-                  ? Colors.greenAccent
-                  : (h.pity > 75 ? Colors.redAccent : Colors.orangeAccent),
+      children: List.generate(
+        banner.history5Star.length,
+        (index) {
+        final h = banner.history5Star[index];
+
+        // Logika detail kemenangan 50/50
+        bool isRateUp = !h.isStandard;
+        // Jika item setelahnya di history adalah standar, berarti item ini hasil guaranteed
+        bool wasGuaranteed = index + 1 < banner.history5Star.length && banner.history5Star[index + 1].isStandard;
+        bool showWinLabel = _isEventBanner && isRateUp && !wasGuaranteed;
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: showWinLabel
+              ? BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.orangeAccent.withOpacity(0.4), width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.orangeAccent.withOpacity(0.2),
+                      blurRadius: 12,
+                      spreadRadius: 0,
+                    ),
+                  ],
+                )
+              : null,
+          child: Card(
+            margin: EdgeInsets.zero,
+            color: const Color(0xFF15121F), // Warna solid agar glow shadow tidak masuk ke body
+            elevation: 0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: ListTile(
+              leading: const Icon(Icons.star_rounded, color: Colors.orangeAccent),
+              title: Text(h.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text(h.time, style: const TextStyle(fontSize: 11, color: Colors.white38)),
+              trailing: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    "${h.pity} Pity",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: h.pity < 30
+                          ? Colors.greenAccent
+                          : (h.pity > 75 ? Colors.redAccent : Colors.orangeAccent),
+                    ),
+                  ),
+                  if (showWinLabel) ...[
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.orangeAccent.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.orangeAccent.withOpacity(0.3)),
+                      ),
+                      child: const Text(
+                        "WIN",
+                        style: TextStyle(
+                          color: Colors.orangeAccent,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ], // Menutup children: [ dari trailing Column
+              ),
             ),
           ),
-        ),
-      )).toList(),
-    );
+        ); // Menutup return Container
+      }), // Menutup lambda (index) {} dan List.generate()
+    ); // Menutup Column()
   }
 }

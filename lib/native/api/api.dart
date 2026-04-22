@@ -37,18 +37,24 @@ Future<BigInt> importLocalJson({
   required String jsonContent,
   required String storageDir,
   required String game,
+  String? uid,
 }) => RustLib.instance.api.crateApiApiImportLocalJson(
   jsonContent: jsonContent,
   storageDir: storageDir,
   game: game,
+  uid: uid,
 );
 
-Future<String> exportLocalJson({
+Future<ExportResult> exportLocalJson({
   required String storageDir,
   required String game,
+  required String version,
+  String? uid,
 }) => RustLib.instance.api.crateApiApiExportLocalJson(
   storageDir: storageDir,
   game: game,
+  version: version,
+  uid: uid,
 );
 
 Stream<ProgressUpdate> performWishImport({

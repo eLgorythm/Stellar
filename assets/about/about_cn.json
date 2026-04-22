@@ -1,0 +1,30 @@
+{
+    "app_name": "STELLAR",
+    "tagline": "在繁星与未见的命运之间，每一次选择都深藏着一段故事。",
+    "description": {
+        "summary": "Stellar 是你旅途中的伴侣——它将协助你解读那些关于希望、幸运以及你所做抉择的足迹。",
+        "core_function": "本应用旨在以简洁而富有深意的方式分析祈愿历史。从保底（Pity）计算到运势全景，Stellar 将数据转化为你能感知的洞察，而非冷冰冰的数字。",
+        "experience": "不仅如此，Stellar 还带来了灵感源自提瓦特世界的体验——在那里，每个人都拥有属于自己的“神之眼”。通过反思与探索功能，你可以窥见自我的另一面，仿佛命运本身正在与你对话。",
+        "philosophy": "Stellar 不仅仅是一个工具，它是你星际旅程中一面小小的明镜。"
+    },
+    "privacy_policy": {
+        "storage": "仅限本地设备",
+        "data_collection": "无",
+        "statement": "你使用的所有数据均保留在你的设备上。没有外部存储，不搜集个人信息——因为这段旅程完全属于你自己。"
+    },
+    "technical_details": {
+        "version": "1.20.4",
+        "credits": {
+            "developer": "elfnd",
+            "frameworks": [
+                "Flutter",
+                "Rust"
+            ]
+        },
+        "license": {
+            "type": "MIT 许可证",
+            "terms": "在保留适当署名的前提下，你可以自由使用、修改和分发本软件。"
+        },
+        "repository": "https://github.com/eLgorythm/Stellar"
+    }
+}

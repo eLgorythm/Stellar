@@ -82,19 +82,40 @@ class CompletedBannerInfo {
           entriesCount == other.entriesCount;
 }
 
+class ExportResult {
+  final String content;
+  final String fileName;
+
+  const ExportResult({required this.content, required this.fileName});
+
+  @override
+  int get hashCode => content.hashCode ^ fileName.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ExportResult &&
+          runtimeType == other.runtimeType &&
+          content == other.content &&
+          fileName == other.fileName;
+}
+
 class FiveStarHistory {
   final String name;
   final int pity;
   final String time;
+  final bool isStandard;
 
   const FiveStarHistory({
     required this.name,
     required this.pity,
     required this.time,
+    required this.isStandard,
   });
 
   @override
-  int get hashCode => name.hashCode ^ pity.hashCode ^ time.hashCode;
+  int get hashCode =>
+      name.hashCode ^ pity.hashCode ^ time.hashCode ^ isStandard.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -103,7 +124,8 @@ class FiveStarHistory {
           runtimeType == other.runtimeType &&
           name == other.name &&
           pity == other.pity &&
-          time == other.time;
+          time == other.time &&
+          isStandard == other.isStandard;
 }
 
 class ProgressUpdate {

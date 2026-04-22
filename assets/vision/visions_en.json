@@ -1,0 +1,44 @@
+{
+    "anemo": {
+        "title": "Anemo",
+        "subtitle": "Freedom & Responsibility",
+        "quote": "The wind never truly stops in one place, and neither does your restless soul.",
+        "description": "In a world filled with high walls and restrictive rules, you are the gust that always finds a crevice to keep moving. Yet, understand that like the Anemo Archon, your true freedom is not about escaping reality. This Vision glows brightest when you choose to stay and shoulder a heavy burden—not because you are forced, but so that those around you do not lose their sky. You are the unseen protector; wings for the heartbroken, and a guide for those lost in the midst of silence."
+    },
+    "geo": {
+        "title": "Geo",
+        "subtitle": "Steadfastness & Oaths",
+        "quote": "The world may change and seasons may shift, but you are the mountain rock that refuses to erode.",
+        "description": "A Geo Vision is not granted to those who are merely physically strong, but to those with unbreakable integrity. To you, words are a contract written in gold—sacred and absolute. You do not crave the world’s applause or recognition, for you know that the sturdiest foundations are those that remain calmest beneath the earth. In Teyvat, your name will be etched among ancient peaks; a symbol of stillness amidst the storm, and proof that honor is the only treasure that remains eternal when all else turns to dust."
+    },
+    "electro": {
+        "title": "Electro",
+        "subtitle": "Eternity & Uniqueness",
+        "quote": "Amidst the gray skies and the clamor of the world, you are the flash of light that is both the brightest and the most estranged.",
+        "description": "An Electro Vision chooses you not for your power, but for your ambition to become 'eternal' amidst transience. Your eternity does not mean living forever, but rather your courage to be an unparalleled version of yourself in a world that constantly forces everyone to be the same. Like the Raiden Shogun, you pursue a vision that transcends the limits of time and human logic. Though the path you tread often feels lonely and cold, know that lightning only strikes those brave enough to stand upon the highest peak and defy destiny."
+    },
+    "dendro": {
+        "title": "Dendro",
+        "subtitle": "Wisdom & Growth",
+        "quote": "To you, a single answer is merely a seed that will grow a thousand new questions, and therein lies your strength.",
+        "description": "A Dendro Vision belongs to those who understand that knowledge is the root of all life and change. You possess the rare ability to see the connections between small things that the common eye deems insignificant. Like a forest that continues to grow in silence even as it pierces through the darkness of the soil, your vision is about the process of becoming better every day. The wisdom you gather is not a weapon for vanity, but an oasis for those lost in confusion, providing a path when all other ways seem blocked."
+    },
+    "hydro": {
+        "title": "Hydro",
+        "subtitle": "Justice & Purity",
+        "quote": "Water can gently follow the shape of its container, yet it also holds the power to crush the hardest steel.",
+        "description": "A Hydro Vision emerges from your pure idealism toward non-negotiable truth. You are a keen observer, able to see beyond the masks worn by others. In your quest for justice, you have learned that logic and empathy must flow in harmony, like a river seeking the ocean. Under the grace of this Vision, you act as the current that cleanses chaos and lies. You ensure that every drop of your actions brings real change, purifying the world from the murky depths of injustice."
+    },
+    "pyro": {
+        "title": "Pyro",
+        "subtitle": "Passion & Sacrifice",
+        "quote": "There is a fire burning fiercely within your chest, a passion that no amount of rain can ever extinguish.",
+        "description": "A Pyro Vision is the sky’s recognition of your burning spirit to achieve your goals, no matter how impossible the road ahead may seem. You are the type of person who is not afraid to be consumed by your own ambition, for to you, a life without a cause to fight for is a death in its own right. Like fireworks that split the darkness of the night with brilliant colors, your presence brings warmth and hope to those who feel the cold. You are the spark capable of starting a revolution, turning nothingness into a meaningful existence."
+    },
+    "cryo": {
+        "title": "Cryo",
+        "subtitle": "Fortitude & Contradiction",
+        "quote": "This Vision is granted to souls who harbor the most sincere warmth, yet remain tightly wrapped in layers of untouchable ice.",
+        "description": "You are someone who lives in a beautiful contradiction—struggling between cold duty and a burning heart's desire. Cryo is a symbol of your resilience in enduring the longest winters of your life without ever giving up. You are a quiet survivor, someone capable of swallowing pain for the sake of preserving the peace of others. The beauty of your soul can only be understood by those patient enough to draw near, waiting for the ice to melt, only to find that beneath your silence lies a very deep love."
+    }
+}

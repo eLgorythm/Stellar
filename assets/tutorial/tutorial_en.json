@@ -1,0 +1,28 @@
+{
+    "app_bar": "Tutorial",
+    "header_title": "How to use Stellar",
+    "header_subtitle": "Follow the steps below",
+    "note": "Important: Ensure phone is on the same Wi-Fi network for Wireless Debugging.",
+    "steps": [
+        {
+            "title": "System Preparation",
+            "desc": "Enable Developer Options (tap 'Build Number' 7x). Enable 'Wireless Debugging' in Developer Options."
+        },
+        {
+            "title": "Pairing Process",
+            "desc": "Wireless Debugging > Pair device with pairing code. Enter the 6-digit code into the Stellar notification."
+        },
+        {
+            "title": "Scanning Gacha Link",
+            "desc": "Once 'Paired', click CONNECT, then SCAN. Open in-game wish history (Genshin/HSR/ZZZ), then return to Stellar."
+        },
+        {
+            "title": "Import Data",
+            "desc": "Copy the scan result link, go to Wish Counter, select game, paste the link, and press IMPORT DATA."
+        },
+        {
+            "title": "Import Local File",
+            "desc": "You can upload local files to import old data (>6 months) and merge it with new data."
+        }
+    ]
+}

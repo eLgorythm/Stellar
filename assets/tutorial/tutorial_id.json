@@ -1,0 +1,28 @@
+{
+    "app_bar": "Tutorial",
+    "header_title": "Cara Menggunakan Stellar",
+    "header_subtitle": "Ikuti langkah-langkah di bawah ini",
+    "note": "Penting: Pastikan HP berada di jaringan Wi-Fi yang sama agar Wireless Debugging bekerja.",
+    "steps": [
+        {
+            "title": "Persiapan Sistem",
+            "desc": "Aktifkan Opsi Developer di pengaturan Android Anda (Ketuk 'Build Number' 7x). Kemudian aktifkan 'Wireless Debugging'."
+        },
+        {
+            "title": "Proses Pairing",
+            "desc": "Buka menu Wireless Debugging > Pair device with pairing code. Masukkan 6-digit kode ke dalam notifikasi Stellar."
+        },
+        {
+            "title": "Scanning Link Gacha",
+            "desc": "Setelah status 'Paired', klik CONNECT, lalu tekan SCAN. Buka riwayat gacha di dalam game, lalu kembali ke Stellar."
+        },
+        {
+            "title": "Import Data",
+            "desc": "Salin link hasil scan, buka menu Wish Counter, pilih game, tempel link tersebut dan tekan IMPORT DATA."
+        },
+        {
+            "title": "Import File Lokal",
+            "desc": "Kamu dapat upload file lokal untuk memasukkan data lama (>6 bulan), lalu digabungkan dengan data baru."
+        }
+    ]
+}

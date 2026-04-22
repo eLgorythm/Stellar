@@ -1,0 +1,337 @@
+[
+    {
+        "id": 1,
+        "question": "When pressure comes from all directions, you tend to?",
+        "options": [
+            {
+                "text": "Look for a gap so you can keep moving without getting trapped",
+                "scores": {
+                    "anemo": 2,
+                    "electro": 1
+                }
+            },
+            {
+                "text": "Focus on completing responsibilities one by one",
+                "scores": {
+                    "geo": 2
+                }
+            },
+            {
+                "text": "Try a new approach that has never been done before",
+                "scores": {
+                    "electro": 2,
+                    "anemo": 1
+                }
+            },
+            {
+                "text": "Unravel the problem and understand the patterns occurring",
+                "scores": {
+                    "dendro": 2
+                }
+            }
+        ]
+    },
+    {
+        "id": 2,
+        "question": "If you had to choose one thing to maintain in your life, what would you protect most?",
+        "options": [
+            {
+                "text": "The space to remain myself without many limitations",
+                "scores": {
+                    "anemo": 2,
+                    "electro": 1
+                }
+            },
+            {
+                "text": "The things I have held onto for a long time, especially the trust of others",
+                "scores": {
+                    "geo": 2,
+                    "cryo": 1
+                }
+            },
+            {
+                "text": "The opportunity to leave behind something different from others",
+                "scores": {
+                    "electro": 2,
+                    "pyro": 1
+                }
+            },
+            {
+                "text": "The process of constantly understanding new things and improving myself",
+                "scores": {
+                    "dendro": 2,
+                    "hydro": 1
+                }
+            }
+        ]
+    },
+    {
+        "id": 3,
+        "question": "You see a situation that feels unfair. What are you most likely to do?",
+        "options": [
+            {
+                "text": "Try to understand all sides before getting involved",
+                "scores": {
+                    "dendro": 1,
+                    "hydro": 1
+                }
+            },
+            {
+                "text": "Take action if I feel the situation has crossed the line",
+                "scores": {
+                    "pyro": 2,
+                    "geo": 1
+                }
+            },
+            {
+                "text": "Try to keep the situation from getting worse",
+                "scores": {
+                    "hydro": 2,
+                    "cryo": 1
+                }
+            },
+            {
+                "text": "Choose to stay silent, but remember it for the right moment",
+                "scores": {
+                    "cryo": 2,
+                    "electro": 1
+                }
+            }
+        ]
+    },
+    {
+        "id": 4,
+        "question": "A sudden major change occurs in your life. What are you most likely to do?",
+        "options": [
+            {
+                "text": "Adjust while looking for the best direction forward",
+                "scores": {
+                    "hydro": 2,
+                    "dendro": 1
+                }
+            },
+            {
+                "text": "Stand firm on the things I already believe in",
+                "scores": {
+                    "geo": 2,
+                    "cryo": 1
+                }
+            },
+            {
+                "text": "Try to take advantage of the situation to open up new possibilities",
+                "scores": {
+                    "anemo": 1,
+                    "electro": 2
+                }
+            },
+            {
+                "text": "Take time to understand the situation before making a move",
+                "scores": {
+                    "dendro": 2,
+                    "hydro": 1
+                }
+            }
+        ]
+    },
+    {
+        "id": 5,
+        "question": "In a group, you usually tend to?",
+        "options": [
+            {
+                "text": "Stay in the background, but make sure everything is running well",
+                "scores": {
+                    "cryo": 2,
+                    "hydro": 1
+                }
+            },
+            {
+                "text": "Take initiative when needed to keep the team on track",
+                "scores": {
+                    "geo": 2,
+                    "pyro": 1
+                }
+            },
+            {
+                "text": "Bring energy to keep the atmosphere alive",
+                "scores": {
+                    "pyro": 2,
+                    "anemo": 1
+                }
+            },
+            {
+                "text": "Observe the situation and provide input at the right time",
+                "scores": {
+                    "dendro": 2,
+                    "electro": 1
+                }
+            }
+        ]
+    },
+    {
+        "id": 6,
+        "question": "When something doesn't go as expected, what do you usually do?",
+        "options": [
+            {
+                "text": "Give myself time, then try again with a different approach",
+                "scores": {
+                    "electro": 2,
+                    "dendro": 1
+                }
+            },
+            {
+                "text": "Push myself to get back up and not dwell on it for too long",
+                "scores": {
+                    "pyro": 2,
+                    "anemo": 1
+                }
+            },
+            {
+                "text": "Continue doing what can be done without showing much emotion",
+                "scores": {
+                    "cryo": 2,
+                    "geo": 1
+                }
+            },
+            {
+                "text": "Try to understand what went wrong before taking the next step",
+                "scores": {
+                    "dendro": 2,
+                    "hydro": 1
+                }
+            }
+        ]
+    },
+    {
+        "id": 7,
+        "question": "In interacting with others, you usually?",
+        "options": [
+            {
+                "text": "Try to understand their feelings before reacting",
+                "scores": {
+                    "hydro": 2,
+                    "dendro": 1
+                }
+            },
+            {
+                "text": "Maintain relationships consistently, especially with those you trust",
+                "scores": {
+                    "geo": 2,
+                    "cryo": 1
+                }
+            },
+            {
+                "text": "Give space so that everyone can still be themselves",
+                "scores": {
+                    "anemo": 2,
+                    "electro": 1
+                }
+            },
+            {
+                "text": "Bring a livelier atmosphere when with others",
+                "scores": {
+                    "pyro": 2,
+                    "anemo": 1
+                }
+            }
+        ]
+    },
+    {
+        "id": 8,
+        "question": "If your life feels like it's standing still, what is your reaction?",
+        "options": [
+            {
+                "text": "Look for a way to break out of the routine",
+                "scores": {
+                    "anemo": 2
+                }
+            },
+            {
+                "text": "Keep persevering because it's part of the process",
+                "scores": {
+                    "geo": 2,
+                    "cryo": 1
+                }
+            },
+            {
+                "text": "Look for something that can make you stand out",
+                "scores": {
+                    "electro": 2
+                }
+            },
+            {
+                "text": "Learn new things to open up another path",
+                "scores": {
+                    "dendro": 2
+                }
+            }
+        ]
+    },
+    {
+        "id": 9,
+        "question": "When you have to make a big decision, what do you do most often?",
+        "options": [
+            {
+                "text": "Consider what feels most right, even if it's hard to explain",
+                "scores": {
+                    "electro": 2,
+                    "hydro": 1
+                }
+            },
+            {
+                "text": "Analyze the possibilities before determining a step",
+                "scores": {
+                    "dendro": 2,
+                    "geo": 1
+                }
+            },
+            {
+                "text": "Stick to the things you've believed in from the start",
+                "scores": {
+                    "geo": 2,
+                    "cryo": 1
+                }
+            },
+            {
+                "text": "Follow the urge to act immediately without hesitating for too long",
+                "scores": {
+                    "pyro": 2,
+                    "anemo": 1
+                }
+            }
+        ]
+    },
+    {
+        "id": 10,
+        "question": "In your life, when do you feel the strongest?",
+        "options": [
+            {
+                "text": "When I can determine my own path without relying much on others",
+                "scores": {
+                    "anemo": 2,
+                    "electro": 1
+                }
+            },
+            {
+                "text": "When I am able to endure even when circumstances are against me",
+                "scores": {
+                    "cryo": 2,
+                    "geo": 1
+                }
+            },
+            {
+                "text": "When I dare to take a step despite the high risks",
+                "scores": {
+                    "pyro": 2,
+                    "anemo": 1
+                }
+            },
+            {
+                "text": "When I understand the situation and know exactly what needs to be done",
+                "scores": {
+                    "dendro": 2,
+                    "hydro": 1
+                }
+            }
+        ]
+    }
+]

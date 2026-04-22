@@ -1,0 +1,30 @@
+{
+    "app_name": "STELLAR",
+    "tagline": "Di antara bintang-bintang dan takdir yang tak terlihat, setiap pilihan menyimpan cerita.",
+    "description": {
+        "summary": "Stellar hadir sebagai pendamping perjalananmu—membantu memahami jejak harapan, keberuntungan, dan keputusan yang telah kamu ambil.",
+        "core_function": "Aplikasi ini dirancang untuk menganalisis riwayat wish secara sederhana namun bermakna. Dari perhitungan pity hingga gambaran keberuntunganmu, Stellar mengubah data menjadi insight yang bisa kamu rasakan, bukan sekadar angka.",
+        "experience": "Lebih dari itu, Stellar juga menghadirkan pengalaman yang terinspirasi dari dunia Teyvat—di mana setiap individu memiliki 'Vision'-nya sendiri. Melalui fitur reflektif dan eksploratif, kamu dapat melihat sisi lain dari dirimu, seolah-olah takdirmu pun turut berbicara.",
+        "philosophy": "Stellar bukan hanya alat, tetapi cermin kecil dari perjalananmu di antara bintang."
+    },
+    "privacy_policy": {
+        "storage": "Local Device Only",
+        "data_collection": "None",
+        "statement": "Semua data yang kamu gunakan tetap berada di perangkatmu. Tidak ada penyimpanan eksternal, tidak ada pengumpulan data pribadi—karena perjalanan ini sepenuhnya milikmu."
+    },
+    "technical_details": {
+        "version": "1.20.4",
+        "credits": {
+            "developer": "elfnd",
+            "frameworks": [
+                "Flutter",
+                "Rust"
+            ]
+        },
+        "license": {
+            "type": "MIT License",
+            "terms": "You are free to use, modify, and distribute this software with proper attribution."
+        },
+        "repository": "https://github.com/eLgorythm/Stellar"
+    }
+}
