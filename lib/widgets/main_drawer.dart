@@ -5,6 +5,7 @@ import 'package:stellar/screens/vision.dart';
 import 'package:stellar/screens/import_data.dart';
 import 'package:stellar/screens/about.dart';
 import 'package:stellar/screens/tutorial.dart';
+import 'package:stellar/l10n/app_localizations.dart';
 
 class MainDrawer extends StatelessWidget {
   final String storageDir;
@@ -12,6 +13,7 @@ class MainDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Drawer(
       backgroundColor: Theme.of(context).colorScheme.surface,
       child: Column(
@@ -31,7 +33,7 @@ class MainDrawer extends StatelessWidget {
           ),
           ListTile(
             leading: const Icon(Icons.adb_rounded),
-            title: const Text('Home'),
+            title: Text(l10n.home),
             onTap: () => Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (context) => HomePage(storageDir: storageDir)),
@@ -39,7 +41,7 @@ class MainDrawer extends StatelessWidget {
           ),
           ListTile(
             leading: const Icon(Icons.auto_awesome_rounded),
-            title: const Text('Wish Counter'),
+            title: Text(l10n.wishCounter),
             onTap: () => Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (context) => WishCounterPage(storageDir: storageDir)),
@@ -47,7 +49,7 @@ class MainDrawer extends StatelessWidget {
           ),
           ListTile(
             leading: const Icon(Icons.upload_file_rounded),
-            title: const Text('Import/Export'),
+            title: Text(l10n.importExport),
             onTap: () => Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (context) => ImportDataPage(storageDir: storageDir)),
@@ -55,7 +57,7 @@ class MainDrawer extends StatelessWidget {
           ),
           ListTile(
             leading: const Icon(Icons.remove_red_eye_rounded),
-            title: const Text("What's your Vision?"),
+            title: Text(l10n.visionTest),
             onTap: () => Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (context) => VisionPage(storageDir: storageDir)),
@@ -63,7 +65,7 @@ class MainDrawer extends StatelessWidget {
           ),
           ListTile(
             leading: const Icon(Icons.lightbulb_outline_rounded),
-            title: const Text('Tutorial'),
+            title: Text(l10n.tutorial),
             onTap: () => Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (context) => TutorialPage(storageDir: storageDir)),
@@ -72,7 +74,7 @@ class MainDrawer extends StatelessWidget {
           const Spacer(),
           ListTile(
             leading: const Icon(Icons.info_outline_rounded),
-            title: const Text('About'),
+            title: Text(l10n.about),
             onTap: () => Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (context) => AboutPage(storageDir: storageDir)),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:flutter/services.dart';
+import 'dart:convert';
 import 'package:stellar/logic/pair_logic.dart';
 import 'package:stellar/logic/connect_logic.dart';
 import 'package:stellar/native/frb_generated.dart';
@@ -25,7 +26,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, UIUtil
   StellarStatus _currentStatus = const StellarStatus.idle();
   AppLifecycleState _lifecycleState = AppLifecycleState.resumed;
   int? _activePort;
-  String? _savedGachaLink;
+  Map<String, String> _historyLinks = {};
 
   static const platform = MethodChannel('labs.oxfnd.stellar/settings');
 
@@ -39,11 +40,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, UIUtil
 
   Future<void> _loadSavedLink() async {
     try {
-      final file = File('${widget.storageDir}/gacha_link.txt');
+      final file = File('${widget.storageDir}/gacha_history.json');
       if (await file.exists()) {
         final content = await file.readAsString();
         if (content.isNotEmpty) {
-          setState(() => _savedGachaLink = content);
+          setState(() => _historyLinks = Map<String, String>.from(jsonDecode(content)));
         }
       }
     } catch (_) {}
@@ -167,12 +168,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, UIUtil
     showSnackBar("Pairing session removed.");
   }
 
+  String _identifyGame(String url) {
+    if (url.contains('hk4e')) return 'gi';
+    if (url.contains('hkrpg')) return 'hsr';
+    if (url.contains('nap')) return 'zzz';
+    return 'unknown';
+  }
+
   Future<void> _persistGachaLink(String link) async {
     try {
-      final file = File('${widget.storageDir}/gacha_link.txt');
-      await file.writeAsString(link);
-      if (!mounted) return;
-      setState(() => _savedGachaLink = link);
+      final gameId = _identifyGame(link);
+      setState(() => _historyLinks[gameId] = link);
+      
+      final file = File('${widget.storageDir}/gacha_history.json');
+      await file.writeAsString(jsonEncode(_historyLinks));
     } catch (_) {}
   }
 
@@ -257,54 +266,85 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, UIUtil
   }
 
   void _showHistoryDialog() {
+    final gameNames = {
+      'gi': 'Genshin Impact',
+      'hsr': 'Honkai: Star Rail',
+      'zzz': 'Zenless Zone Zero',
+      'unknown': 'Other / Unknown'
+    };
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Last Scanned Link"),
+        title: const Text("Gacha Link History"),
         content: SizedBox(
           width: MediaQuery.of(context).size.width * 0.9,
-          child: _savedGachaLink == null
+          child: _historyLinks.isEmpty
               ? const Text("No link saved yet. Perform a scan first.")
-              : Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white10),
-                  ),
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(context).size.height * 0.3,
-                  ),
-                  child: SingleChildScrollView(
-                    child: SelectableText(
-                      _savedGachaLink!,
-                      style: const TextStyle(fontSize: 14, fontFamily: 'monospace', color: Colors.white70),
-                    ),
+              : SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: _historyLinks.entries.map((entry) {
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        color: Colors.white.withOpacity(0.05),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(gameNames[entry.key] ?? entry.key, 
+                                    style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFAEEA00))),
+                                  Row(
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.copy_rounded, size: 18),
+                                        onPressed: () {
+                                          Clipboard.setData(ClipboardData(text: entry.value));
+                                          showSnackBar("Copied ${gameNames[entry.key]} link!");
+                                        },
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
+                                        onPressed: () async {
+                                          setState(() => _historyLinks.remove(entry.key));
+                                          final file = File('${widget.storageDir}/gacha_history.json');
+                                          await file.writeAsString(jsonEncode(_historyLinks));
+                                          if (context.mounted) Navigator.pop(context);
+                                          _showHistoryDialog();
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.black26,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  entry.value,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 11, fontFamily: 'monospace', color: Colors.white54),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
                   ),
                 ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("CLOSE")),
-          if (_savedGachaLink != null)
-            ElevatedButton.icon(
-              onPressed: () {
-                Clipboard.setData(ClipboardData(text: _savedGachaLink!));
-                showSnackBar("Copied to clipboard!");
-                Navigator.pop(context);
-              },
-              icon: const Icon(Icons.copy_rounded, size: 18),
-              label: const Text("COPY"),
-            ),
-          if (_savedGachaLink != null)
-            IconButton(
-              onPressed: () async {
-                await File('${widget.storageDir}/gacha_link.txt').delete();
-                setState(() => _savedGachaLink = null);
-                if (!context.mounted) return;
-                Navigator.pop(context);
-              },
-              icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-            ),
         ],
       ),
     );

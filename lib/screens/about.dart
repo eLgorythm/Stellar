@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:stellar/widgets/main_drawer.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class AboutPage extends StatefulWidget {
   final String storageDir;
@@ -15,6 +16,7 @@ class AboutPage extends StatefulWidget {
 class _AboutPageState extends State<AboutPage> {
   Map<String, dynamic>? _aboutData;
   bool _isLoading = true;
+  String _appVersion = '';
 
   @override
   void initState() {
@@ -35,6 +37,8 @@ class _AboutPageState extends State<AboutPage> {
   Future<void> _loadAboutData() async {
     try {
       final lang = _getLangCode();
+      final packageInfo = await PackageInfo.fromPlatform();
+
       String jsonString;
       try {
         jsonString = await rootBundle.loadString('assets/about/about_$lang.json');
@@ -44,6 +48,7 @@ class _AboutPageState extends State<AboutPage> {
       
       setState(() {
         _aboutData = json.decode(jsonString);
+        _appVersion = "${packageInfo.version}+${packageInfo.buildNumber}";
         _isLoading = false;
       });
     } catch (e) {
@@ -131,7 +136,7 @@ class _AboutPageState extends State<AboutPage> {
               title: "Technical Details",
               icon: Icons.code_rounded,
               children: [
-                _buildInfoRow("Version", tech['version'] ?? ''),
+                _buildInfoRow("Version", _appVersion),
                 _buildInfoRow("Developer", tech['credits']['developer'] ?? ''),
                 _buildInfoRow("Frameworks", (tech['credits']['frameworks'] as List).join(", ")),
                 _buildInfoRow("License", tech['license']['type'] ?? ''),

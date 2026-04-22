@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:stellar/native/frb_generated.dart';
 import 'package:stellar/screens/home.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:stellar/l10n/app_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,6 +26,22 @@ class StellarApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      localeResolutionCallback: (locale, supportedLocales) {
+        // Jika locale sistem tidak terdeteksi, gunakan bahasa pertama (English)
+        if (locale == null) return supportedLocales.first;
+
+        // Periksa apakah bahasa sistem didukung oleh aplikasi
+        for (var supportedLocale in supportedLocales) {
+          if (supportedLocale.languageCode == locale.languageCode) {
+            return supportedLocale;
+          }
+        }
+
+        // Jika tidak didukung (e.g. Perancis, Jerman), fallback ke English
+        return supportedLocales.first;
+      },
       theme: ThemeData(
         brightness: Brightness.dark,
         useMaterial3: true,

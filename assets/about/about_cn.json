@@ -13,7 +13,7 @@
         "statement": "你使用的所有数据均保留在你的设备上。没有外部存储，不搜集个人信息——因为这段旅程完全属于你自己。"
     },
     "technical_details": {
-        "version": "1.20.4",
+        "version": "",
         "credits": {
             "developer": "elfnd",
             "frameworks": [

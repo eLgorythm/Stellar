@@ -90,6 +90,7 @@ abstract class RustLibApi extends BaseApi {
     required String game,
     required String version,
     String? uid,
+    required String appVersion,
   });
 
   Future<StellarState> crateApiApiGetCurrentState();
@@ -209,6 +210,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required String game,
     required String version,
     String? uid,
+    required String appVersion,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -218,6 +220,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_String(game, serializer);
           sse_encode_String(version, serializer);
           sse_encode_opt_String(uid, serializer);
+          sse_encode_String(appVersion, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -230,7 +233,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_AnyhowException,
         ),
         constMeta: kCrateApiApiExportLocalJsonConstMeta,
-        argValues: [storageDir, game, version, uid],
+        argValues: [storageDir, game, version, uid, appVersion],
         apiImpl: this,
       ),
     );
@@ -238,7 +241,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiApiExportLocalJsonConstMeta => const TaskConstMeta(
     debugName: "export_local_json",
-    argNames: ["storageDir", "game", "version", "uid"],
+    argNames: ["storageDir", "game", "version", "uid", "appVersion"],
   );
 
   @override

@@ -1,0 +1,28 @@
+{
+  "home": "主页",
+  "wishCounter": "抽卡记录",
+  "importExport": "导入/导出",
+  "visionTest": "你的神之眼是什么？",
+  "tutorial": "教程",
+  "about": "关于",
+  "loading": "加载中...",
+  "question": "问题",
+  "resultVision": "你的神之眼是",
+  "retryTest": "重新测试",
+  "importExportHistory": "导入/导出历史",
+  "importExportDesc": "选择导出的JSON文件（UIGF v3.0, v4.2, 或 SRGF v1.0）以合并到Stellar本地数据。",
+  "uidOptional": "玩家UID（可选）",
+  "uidHint": "请输入UID以兼容其他应用，如果不需要则留空。",
+  "selectJson": "选择JSON文件",
+  "exportJson": "导出为JSON",
+  "successImport": "成功！导入了 {count} 条新记录。",
+  "@successImport": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "processing": "处理中...",
+  "preparing": "准备中...",
+  "successExport": "成功！导出文件已保存。",
+  "duplicationNote": "现有数据将根据内部 ID 自动去重。"
+}

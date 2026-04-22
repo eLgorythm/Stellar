@@ -7,6 +7,8 @@ import 'package:file_picker/file_picker.dart';
 import 'dart:typed_data';
 import 'dart:convert';
 import 'dart:io';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:stellar/l10n/app_localizations.dart';
 
 class ImportDataPage extends StatefulWidget {
   final String storageDir;
@@ -42,7 +44,8 @@ class _ImportDataPageState extends State<ImportDataPage> with UIUtils {
           uid: _uidController.text.isEmpty ? null : _uidController.text,
         );
 
-        showSnackBar("Success! Berhasil mengimpor $addedCount entri baru.");
+        if (!mounted) return;
+        showSnackBar(AppLocalizations.of(context)!.successImport(addedCount.toInt()));
       } catch (e) {
         showErrorDialog("Import Error", e.toString());
       } finally {
@@ -54,12 +57,15 @@ class _ImportDataPageState extends State<ImportDataPage> with UIUtils {
   void _exportToJson() async {
     setState(() => _isExporting = true);
     try {
+      final packageInfo = await PackageInfo.fromPlatform();
+
       // 1. Ambil data JSON terformat dari Rust menggunakan struct ExportResult
       final exportResult = await RustLib.instance.api.crateApiApiExportLocalJson(
         storageDir: widget.storageDir,
         game: _selectedGame,
         version: _selectedVersion,
         uid: _uidController.text.isEmpty ? null : _uidController.text,
+        appVersion: packageInfo.version,
       );
 
       // Convert String content to Uint8List for mobile compatibility
@@ -75,7 +81,8 @@ class _ImportDataPageState extends State<ImportDataPage> with UIUtils {
         bytes: bytes,
       );
 
-      showSnackBar("Berhasil! File export telah disimpan.");
+      if (!mounted) return;
+      showSnackBar(AppLocalizations.of(context)!.successExport);
     } catch (e) {
       showErrorDialog("Export Error", e.toString());
     } finally {
@@ -98,9 +105,10 @@ class _ImportDataPageState extends State<ImportDataPage> with UIUtils {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Import/Export", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(l10n.importExport, style: const TextStyle(fontWeight: FontWeight.bold)),
       ),
       drawer: MainDrawer(storageDir: widget.storageDir),
       body: Padding(
@@ -109,13 +117,13 @@ class _ImportDataPageState extends State<ImportDataPage> with UIUtils {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const SizedBox(height: 24),
-            const Text(
-              "Import/Export History",
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            Text(
+              l10n.importExportHistory,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            const Text(
-              "Pilih file JSON hasil export (UIGF v3.0, v4.2, atau SRGF v1.0) untuk digabungkan dengan data lokal Stellar.",
+            Text(
+              l10n.importExportDesc,
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.white54),
             ),
@@ -187,19 +195,19 @@ class _ImportDataPageState extends State<ImportDataPage> with UIUtils {
               child: TextField(
                 controller: _uidController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  hintText: "UID Pemain (Opsional)",
+                decoration: InputDecoration(
+                  hintText: l10n.uidOptional,
                   border: InputBorder.none,
-                  icon: Icon(Icons.person_outline_rounded, size: 20),
+                  icon: const Icon(Icons.person_outline_rounded, size: 20),
                 ),
               ),
             ),
             const SizedBox(height: 8),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8.0),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
               child: Text(
-                "Silakan isi UID untuk kompatibilitas dengan aplikasi lain, atau biarkan kosong jika tidak diperlukan.",
-                style: TextStyle(fontSize: 11, color: Colors.white38),
+                l10n.uidHint,
+                style: const TextStyle(fontSize: 11, color: Colors.white38),
                 textAlign: TextAlign.start,
               ),
             ),
@@ -215,7 +223,7 @@ class _ImportDataPageState extends State<ImportDataPage> with UIUtils {
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.file_open_rounded),
                 label: Text(
-                  _isImporting ? "PROCESSING..." : "SELECT JSON FILE",
+                  _isImporting ? l10n.processing : l10n.selectJson,
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
@@ -232,7 +240,7 @@ class _ImportDataPageState extends State<ImportDataPage> with UIUtils {
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.download_rounded),
                 label: Text(
-                  _isExporting ? "PREPARING..." : "EXPORT TO JSON",
+                  _isExporting ? l10n.preparing : l10n.exportJson,
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
@@ -240,7 +248,7 @@ class _ImportDataPageState extends State<ImportDataPage> with UIUtils {
             
             const Spacer(),
             Text(
-              "Data yang sudah ada tidak akan terduplikasi berdasarkan internal ID.",
+              l10n.duplicationNote,
               style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.3)),
               textAlign: TextAlign.center,
             ),

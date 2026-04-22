@@ -13,7 +13,7 @@
         "statement": "使用されるすべてのデータは、お使いのデバイス内に留まります。外部サーバーへの保存や個人情報の収集は一切行われません。この旅は、完全にあなただけのものだからです。"
     },
     "technical_details": {
-        "version": "1.20.4",
+        "version": "",
         "credits": {
             "developer": "elfnd",
             "frameworks": [

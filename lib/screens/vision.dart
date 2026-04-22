@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:stellar/widgets/main_drawer.dart';
+import 'package:stellar/l10n/app_localizations.dart';
 
 class VisionPage extends StatefulWidget {
   final String storageDir;
@@ -38,40 +39,9 @@ class _VisionPageState extends State<VisionPage> {
     'cryo': const Color(0xFFA0E9FB),    // Icy Light Blue khas Cryo
   };
 
-  // Map untuk lokalisasi teks UI
-  final Map<String, Map<String, String>> _i18n = {
-    'en': {
-      'title': "What's your Vision?",
-      'loading': "Loading...",
-      'question_label': "QUESTION",
-      'result_label': "Your Vision is",
-      'retry_button': "RETRY TEST",
-    },
-    'id': {
-      'title': "What's your Vision?",
-      'loading': "Loading...",
-      'question_label': "PERTANYAAN",
-      'result_label': "Vision Kamu adalah",
-      'retry_button': "ULANGI TES",
-    },
-    'cn': {
-      'title': "你的神之眼是什么？",
-      'loading': "加载中...",
-      'question_label': "问题",
-      'result_label': "你的神之眼是",
-      'retry_button': "重新测试",
-    },
-    'jp': {
-      'title': "あなたの神の目は？",
-      'loading': "読み込み中...",
-      'question_label': "質問",
-      'result_label': "あなたの神の目は",
-      'retry_button': "もう一度テストする",
-    }
-  };
-
   String _getLangCode() {
-    final code = View.of(context).platformDispatcher.locale.languageCode;
+    final locale = Localizations.localeOf(context);
+    final code = locale.languageCode;
     if (['id', 'zh', 'ja'].contains(code)) {
       if (code == 'zh') return 'cn';
       if (code == 'ja') return 'jp';
@@ -127,20 +97,19 @@ class _VisionPageState extends State<VisionPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     if (_isLoading) {
-      final lang = _getLangCode();
       return Scaffold(
-        appBar: AppBar(title: Text(_i18n[lang]!['loading']!)),
+        appBar: AppBar(title: Text(l10n.loading)),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     final bool isQuizFinished = _currentQuestionIndex >= _questions.length;
-    final lang = _getLangCode();
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_i18n[lang]!['title']!, style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(l10n.visionTest, style: const TextStyle(fontWeight: FontWeight.bold)),
       ),
       drawer: MainDrawer(storageDir: widget.storageDir),
       body: Padding(
@@ -157,13 +126,13 @@ class _VisionPageState extends State<VisionPage> {
 
   Widget _buildQuiz() {
     final question = _questions[_currentQuestionIndex];
-    final lang = _getLangCode();
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       key: ValueKey(_currentQuestionIndex),
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
-          "${_i18n[lang]!['question_label']} ${_currentQuestionIndex + 1} / ${_questions.length}",
+          "${l10n.question} ${_currentQuestionIndex + 1} / ${_questions.length}",
           style: const TextStyle(fontFamily: 'VT323', fontSize: 24, color: Color(0xFFD1C4E9)),
         ),
         const SizedBox(height: 12),
@@ -211,7 +180,7 @@ class _VisionPageState extends State<VisionPage> {
     final String element = _getHighestElement();
     final data = _resultData[element]!;
     final Color elementColor = _elementColors[element] ?? Colors.white;
-    final lang = _getLangCode();
+    final l10n = AppLocalizations.of(context)!;
 
     return SingleChildScrollView(
       child: Center(
@@ -228,7 +197,7 @@ class _VisionPageState extends State<VisionPage> {
             ),
             const SizedBox(height: 24),
             Text(
-              "${_i18n[lang]!['result_label']} ${data['title']}",
+              "${l10n.resultVision} ${data['title']}",
               style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: elementColor),
             ),
             const SizedBox(height: 4),
@@ -271,7 +240,7 @@ class _VisionPageState extends State<VisionPage> {
                 _questions.shuffle(); // Mengacak kembali saat mengulangi tes
               }),
               icon: const Icon(Icons.refresh_rounded),
-              label: Text(_i18n[lang]!['retry_button']!),
+              label: Text(l10n.retryTest),
             ),
           ],
         ),
