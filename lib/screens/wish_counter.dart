@@ -97,9 +97,11 @@ class _WishCounterPageState extends State<WishCounterPage> with UIUtils {
             isGuaranteed: s.isGuaranteed,
             totalWishes: s.totalWishes,
             history5Star: s.history5Star,
+            history4Star: s.history4Star,
             avgPity: s.avgPity,
             total4Star: s.total4Star,
             pity4Star: s.pity4Star,
+            monthlyStats: s.monthlyStats,
           ));
         }
         _stage = WishStage.results;

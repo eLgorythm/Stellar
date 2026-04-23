@@ -1,0 +1,18 @@
+{
+  "guide_title": "Searching...",
+  "guide_body": "Please open Wireless Debugging settings.",
+  "pairing_ready_title": "Ready to Pair",
+  "pairing_input_body": "Enter the code from system settings.",
+  "pairing_action_label": "Pair Now",
+  "pairing_input_label": "6-digit pairing code",
+  "success_title": "Success",
+  "success_body": "Device paired successfully.",
+  "scanning_gacha_link_title": "Scanning Gacha Link...",
+  "scanning_gacha_link_body": "Please open Wish History in game",
+  "link_retrieved_title": "Link Retrieved!",
+  "link_retrieved_body": "Ready to copy",
+  "connecting_title": "Connecting...",
+  "connecting_body": "Establishing secure ADB session",
+  "connected_title": "Connected",
+  "connected_body": "Device is ready for scanning"
+}

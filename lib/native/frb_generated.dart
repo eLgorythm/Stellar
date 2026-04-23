@@ -514,8 +514,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   BannerSummary dco_decode_banner_summary(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 10)
-      throw Exception('unexpected arr length: expect 10 but see ${arr.length}');
+    if (arr.length != 12)
+      throw Exception('unexpected arr length: expect 12 but see ${arr.length}');
     return BannerSummary(
       title: dco_decode_String(arr[0]),
       pity: dco_decode_i_32(arr[1]),
@@ -524,9 +524,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       isGuaranteed: dco_decode_bool(arr[4]),
       totalWishes: dco_decode_i_32(arr[5]),
       history5Star: dco_decode_list_five_star_history(arr[6]),
-      avgPity: dco_decode_f_64(arr[7]),
-      total4Star: dco_decode_i_32(arr[8]),
-      pity4Star: dco_decode_i_32(arr[9]),
+      history4Star: dco_decode_list_five_star_history(arr[7]),
+      avgPity: dco_decode_f_64(arr[8]),
+      total4Star: dco_decode_i_32(arr[9]),
+      pity4Star: dco_decode_i_32(arr[10]),
+      monthlyStats: dco_decode_list_monthly_stat(arr[11]),
     );
   }
 
@@ -576,13 +578,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   FiveStarHistory dco_decode_five_star_history(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 4)
-      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
     return FiveStarHistory(
       name: dco_decode_String(arr[0]),
       pity: dco_decode_i_32(arr[1]),
       time: dco_decode_String(arr[2]),
       isStandard: dco_decode_bool(arr[3]),
+      itemType: dco_decode_String(arr[4]),
     );
   }
 
@@ -613,9 +616,28 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<MonthlyStat> dco_decode_list_monthly_stat(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_monthly_stat).toList();
+  }
+
+  @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as Uint8List;
+  }
+
+  @protected
+  MonthlyStat dco_decode_monthly_stat(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return MonthlyStat(
+      year: dco_decode_i_32(arr[0]),
+      month: dco_decode_i_32(arr[1]),
+      totalPulls: dco_decode_i_32(arr[2]),
+    );
   }
 
   @protected
@@ -747,9 +769,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_isGuaranteed = sse_decode_bool(deserializer);
     var var_totalWishes = sse_decode_i_32(deserializer);
     var var_history5Star = sse_decode_list_five_star_history(deserializer);
+    var var_history4Star = sse_decode_list_five_star_history(deserializer);
     var var_avgPity = sse_decode_f_64(deserializer);
     var var_total4Star = sse_decode_i_32(deserializer);
     var var_pity4Star = sse_decode_i_32(deserializer);
+    var var_monthlyStats = sse_decode_list_monthly_stat(deserializer);
     return BannerSummary(
       title: var_title,
       pity: var_pity,
@@ -758,9 +782,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       isGuaranteed: var_isGuaranteed,
       totalWishes: var_totalWishes,
       history5Star: var_history5Star,
+      history4Star: var_history4Star,
       avgPity: var_avgPity,
       total4Star: var_total4Star,
       pity4Star: var_pity4Star,
+      monthlyStats: var_monthlyStats,
     );
   }
 
@@ -810,11 +836,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_pity = sse_decode_i_32(deserializer);
     var var_time = sse_decode_String(deserializer);
     var var_isStandard = sse_decode_bool(deserializer);
+    var var_itemType = sse_decode_String(deserializer);
     return FiveStarHistory(
       name: var_name,
       pity: var_pity,
       time: var_time,
       isStandard: var_isStandard,
+      itemType: var_itemType,
     );
   }
 
@@ -867,10 +895,35 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<MonthlyStat> sse_decode_list_monthly_stat(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <MonthlyStat>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_monthly_stat(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var len_ = sse_decode_i_32(deserializer);
     return deserializer.buffer.getUint8List(len_);
+  }
+
+  @protected
+  MonthlyStat sse_decode_monthly_stat(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_year = sse_decode_i_32(deserializer);
+    var var_month = sse_decode_i_32(deserializer);
+    var var_totalPulls = sse_decode_i_32(deserializer);
+    return MonthlyStat(
+      year: var_year,
+      month: var_month,
+      totalPulls: var_totalPulls,
+    );
   }
 
   @protected
@@ -1032,9 +1085,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_bool(self.isGuaranteed, serializer);
     sse_encode_i_32(self.totalWishes, serializer);
     sse_encode_list_five_star_history(self.history5Star, serializer);
+    sse_encode_list_five_star_history(self.history4Star, serializer);
     sse_encode_f_64(self.avgPity, serializer);
     sse_encode_i_32(self.total4Star, serializer);
     sse_encode_i_32(self.pity4Star, serializer);
+    sse_encode_list_monthly_stat(self.monthlyStats, serializer);
   }
 
   @protected
@@ -1082,6 +1137,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_i_32(self.pity, serializer);
     sse_encode_String(self.time, serializer);
     sse_encode_bool(self.isStandard, serializer);
+    sse_encode_String(self.itemType, serializer);
   }
 
   @protected
@@ -1127,6 +1183,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_monthly_stat(
+    List<MonthlyStat> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_monthly_stat(item, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_list_prim_u_8_strict(
     Uint8List self,
     SseSerializer serializer,
@@ -1134,6 +1202,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.length, serializer);
     serializer.buffer.putUint8List(self);
+  }
+
+  @protected
+  void sse_encode_monthly_stat(MonthlyStat self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.year, serializer);
+    sse_encode_i_32(self.month, serializer);
+    sse_encode_i_32(self.totalPulls, serializer);
   }
 
   @protected

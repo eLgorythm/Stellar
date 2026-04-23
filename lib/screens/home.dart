@@ -232,14 +232,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, UIUtil
                 ElevatedButton(
                   onPressed: isScanning ? null : () async {
                     setDialogState(() => isScanning = true);
-                    await NotificationService.showStatus("Scanning Gacha Link...", "Please open Wish History in game");
+                    await NotificationService.showScanningGachaLink();
                     try {
                       final link = await RustLib.instance.api.crateApiApiGetGachaLink(port: 0, storageDir: widget.storageDir);
                       debugPrint("DART: Gacha link received from Rust: '$link'");
                       setDialogState(() { foundLink = link; isScanning = false; });
                       _persistGachaLink(link);
-                      await NotificationService.showStatus("Link Retrieved!", "Ready to copy", id: 4);
-                      await NotificationService.cancel(3);
+                      await NotificationService.showLinkRetrieved();
+                      await NotificationService.cancel(2); // Cancel scanning notification
                     } catch (e) {
                       setDialogState(() => isScanning = false);
                       Navigator.pop(context);
@@ -352,12 +352,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, UIUtil
 
   Future<void> _handleConnect() async {
     setState(() => _isLoading = true);
-    await NotificationService.showStatus("Connecting...", "Establishing secure ADB session");
+    await NotificationService.showConnecting();
     try {
       final result = await ConnectLogic.connect(widget.storageDir);
       if (!mounted) return;
       setState(() => _currentStatus = const StellarStatus.connected());
-      await NotificationService.showStatus("Connected", "Device is ready for scanning");
+      await NotificationService.showConnected();
       _showGachaScannerDialog();
     } catch (e) {
       if (mounted) setState(() => _currentStatus = StellarStatus.error(e.toString()));

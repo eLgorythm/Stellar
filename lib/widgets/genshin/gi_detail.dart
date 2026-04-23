@@ -2,31 +2,35 @@ import 'package:flutter/material.dart';
 import 'package:stellar/widgets/wish_banner.dart';
 import 'package:stellar/native/wish_parser.dart';
 
-class GIDetailPage extends StatelessWidget {
+class GIDetailPage extends StatefulWidget {
   final WishBanner banner;
 
   const GIDetailPage({super.key, required this.banner});
+
+  @override
+  State<GIDetailPage> createState() => _GIDetailPageState();
+}
+
+class _GIDetailPageState extends State<GIDetailPage> {
+  int _selectedTabIndex = 0; // 0: 5-Star, 1: 4-Star
+
   bool get _isEventBanner =>
-      banner.title.contains("Character") || banner.title.contains("Weapon");
+      widget.banner.title.contains("Character") || widget.banner.title.contains("Weapon");
+
 
   @override
   Widget build(BuildContext context) {
-    // Threshold Pity untuk Genshin Impact
-    final int maxPity5 = banner.title.contains("Weapon") ? 80 : 90;
+    final int maxPity5 = widget.banner.title.contains("Weapon") ? 80 : 90;
     final int maxPity4 = 10;
 
     // Logika warna untuk Pity Tracking
-    final bool isNearSoftPity = banner.pity >= (maxPity5 == 80 ? 63 : 74);
+    final bool isNearSoftPity = widget.banner.pity >= (maxPity5 == 80 ? 63 : 74);
     final Color pity5Color = isNearSoftPity ? Colors.orangeAccent : const Color(0xFFAEEA00);
-    final Color pity4Color = banner.pity4Star >= 8 ? Colors.orangeAccent : Colors.purpleAccent;
+    final Color pity4Color = widget.banner.pity4Star >= 8 ? Colors.orangeAccent : Colors.purpleAccent;
 
     return Scaffold(
       backgroundColor: const Color(0xFF1A1625),
-      appBar: AppBar(
-        title: Text("${banner.title} Analysis", style: const TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
+      appBar: AppBar(title: Text("${widget.banner.title} Analysis", style: const TextStyle(fontWeight: FontWeight.bold)), backgroundColor: Colors.transparent, elevation: 0),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         child: Column(
@@ -36,20 +40,43 @@ class GIDetailPage extends StatelessWidget {
             const SizedBox(height: 32),
             const Text("Pity Tracking", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            _buildPityBar("5-Star Pity", banner.pity, maxPity5, pity5Color),
+            _buildPityBar("5-Star Pity", widget.banner.pity, maxPity5, pity5Color),
             const SizedBox(height: 16),
-            // Menampilkan info Bintang 4 (B4)
-            _buildPityBar("4-Star Pity", banner.pity4Star, maxPity4, pity4Color),
+            _buildPityBar("4-Star Pity", widget.banner.pity4Star, maxPity4, pity4Color),
             const SizedBox(height: 32),
             const Text("Detailed Stats", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             _buildStatsGrid(maxPity5),
             const SizedBox(height: 32),
-            const Text("5-Star Pull Logs", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            _buildHistoryList(),
+            Row(
+              children: [
+                _buildTabItem("5-Star Logs", 0),
+                const SizedBox(width: 12),
+                _buildTabItem("4-Star Logs", 1),
+              ],
+            ),
+            const SizedBox(height: 20),
+            _buildHistoryList(_selectedTabIndex == 1),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildTabItem(String label, int index) {
+    bool isSelected = _selectedTabIndex == index;
+    return InkWell(
+      onTap: () => setState(() => _selectedTabIndex = index),
+      borderRadius: BorderRadius.circular(12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF9575CD) : Colors.white.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: isSelected ? Colors.transparent : Colors.white10),
+        ),
+        child: Text(label, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isSelected ? Colors.white : Colors.white38)),
       ),
     );
   }
@@ -64,9 +91,9 @@ class GIDetailPage extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildMetric("Total Pulls", banner.totalWishes.toString(), Icons.history),
-          _buildMetric("5★ Items", banner.history5Star.length.toString(), Icons.star, Colors.orangeAccent),
-          _buildMetric("4★ Items", banner.total4Star.toString(), Icons.star_border, Colors.purpleAccent),
+          _buildMetric("Total Pulls", widget.banner.totalWishes.toString(), Icons.history),
+          _buildMetric("5★ Items", widget.banner.history5Star.length.toString(), Icons.star, Colors.orangeAccent),
+          _buildMetric("4★ Items", widget.banner.total4Star.toString(), Icons.star_border, Colors.purpleAccent),
         ],
       ),
     );
@@ -111,18 +138,18 @@ class GIDetailPage extends StatelessWidget {
   Widget _buildStatsGrid(int maxPity5) {
     // Hitung Win Rate 50/50
     String winRate = "N/A";
-    if (_isEventBanner && banner.history5Star.isNotEmpty) {
+    if (_isEventBanner && widget.banner.history5Star.isNotEmpty) {
       int totalFlips = 0;
       int wins = 0;
 
-      for (int i = 0; i < banner.history5Star.length; i++) {
+      for (int i = 0; i < widget.banner.history5Star.length; i++) {
         // Jika pull sebelumnya (i+1) adalah item standar, maka pull saat ini adalah jaminan (guaranteed).
         // Menghitung rate saat pemain tidak dalam kondisi guaranteed.
-        bool wasGuaranteed = i + 1 < banner.history5Star.length && banner.history5Star[i + 1].isStandard;
+        bool wasGuaranteed = i + 1 < widget.banner.history5Star.length && widget.banner.history5Star[i + 1].isStandard;
         
         if (!wasGuaranteed) {
           totalFlips++;
-          if (!banner.history5Star[i].isStandard) {
+          if (!widget.banner.history5Star[i].isStandard) {
             wins++;
           }
         }
@@ -132,8 +159,8 @@ class GIDetailPage extends StatelessWidget {
       }
     }
 
-    final int totalPrimos = banner.totalWishes * 160;
-    final int toHardPityPrimos = (maxPity5 - banner.pity) * 160;
+    final int totalPrimos = widget.banner.totalWishes * 160;
+    final int toHardPityPrimos = (maxPity5 - widget.banner.pity) * 160;
     
     // Formatter sederhana untuk angka ribuan
     String formatNumber(int number) => number.toString().replaceAllMapped(
@@ -147,10 +174,10 @@ class GIDetailPage extends StatelessWidget {
       mainAxisSpacing: 12,
       crossAxisSpacing: 12,
       children: [
-        _buildStatTile("Average 5★", "${banner.avgPity.toStringAsFixed(1)} pulls"),
-        _buildStatTile("Luck Rate (5★)", "${((banner.history5Star.length / banner.totalWishes) * 100).toStringAsFixed(2)}%"),
-        _buildStatTile(_isEventBanner && banner.title.contains("Weapon") ? "75/25 Win Rate" : "50/50 Win Rate", winRate),
-        _buildStatTile("Next Status", banner.isGuaranteed ? "Guaranteed" : "50/50 Chance"),
+        _buildStatTile("Average 5★", "${widget.banner.avgPity.toStringAsFixed(1)} pulls"),
+        _buildStatTile("Luck Rate (5★)", "${((widget.banner.history5Star.length / widget.banner.totalWishes) * 100).toStringAsFixed(2)}%"),
+        _buildStatTile(_isEventBanner && widget.banner.title.contains("Weapon") ? "75/25 Win Rate" : "50/50 Win Rate", winRate),
+        _buildStatTile("Next Status", widget.banner.isGuaranteed ? "Guaranteed" : "50/50 Chance"),
         _buildStatTile("Primogems Spent", "${formatNumber(totalPrimos)} ✦"),
         _buildStatTile("To Hard Pity", "${formatNumber(toHardPityPrimos)} ✦"),
       ],
@@ -176,20 +203,33 @@ class GIDetailPage extends StatelessWidget {
     );
   }
 
-  Widget _buildHistoryList() {
-    if (banner.history5Star.isEmpty) return const Text("No 5-star history found.", style: TextStyle(color: Colors.white24));
+  Widget _buildHistoryList(bool is4Star) {
+    final history = is4Star ? widget.banner.history4Star : widget.banner.history5Star;
+
+    if (history.isEmpty) {
+      return Text(
+        is4Star ? "No 4-star history found." : "No 5-star history found.",
+        style: const TextStyle(color: Colors.white24),
+      );
+    }
 
     return Column(
       children: List.generate(
-        banner.history5Star.length,
+        history.length,
         (index) {
-        final h = banner.history5Star[index];
+        final h = history[index];
 
-        // Logika detail kemenangan 50/50
-        bool isRateUp = !h.isStandard;
-        // Jika item setelahnya di history adalah standar, berarti item ini hasil guaranteed
-        bool wasGuaranteed = index + 1 < banner.history5Star.length && banner.history5Star[index + 1].isStandard;
-        bool showWinLabel = _isEventBanner && isRateUp && !wasGuaranteed;
+        bool showWinLabel = false;
+        if (!is4Star) {
+          // Logika detail kemenangan 50/50 hanya untuk 5★
+          bool isRateUp = !h.isStandard;
+          bool wasGuaranteed = index + 1 < history.length && history[index + 1].isStandard;
+          showWinLabel = _isEventBanner && isRateUp && !wasGuaranteed;
+        }
+
+        Color pityColor = is4Star 
+            ? (h.pity >= 9 ? Colors.redAccent : (h.pity >= 8 ? Colors.orangeAccent : Colors.purpleAccent))
+            : (h.pity < 30 ? Colors.greenAccent : (h.pity > 75 ? Colors.redAccent : Colors.orangeAccent));
 
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
@@ -212,7 +252,7 @@ class GIDetailPage extends StatelessWidget {
             elevation: 0,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: ListTile(
-              leading: const Icon(Icons.star_rounded, color: Colors.orangeAccent),
+              leading: Icon(Icons.star_rounded, color: is4Star ? Colors.purpleAccent : Colors.orangeAccent),
               title: Text(h.name, style: const TextStyle(fontWeight: FontWeight.bold)),
               subtitle: Text(h.time, style: const TextStyle(fontSize: 11, color: Colors.white38)),
               trailing: Column(
@@ -222,12 +262,7 @@ class GIDetailPage extends StatelessWidget {
                 children: [
                   Text(
                     "${h.pity} Pity",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: h.pity < 30
-                          ? Colors.greenAccent
-                          : (h.pity > 75 ? Colors.redAccent : Colors.orangeAccent),
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.bold, color: pityColor),
                   ),
                   if (showWinLabel) ...[
                     const SizedBox(height: 6),

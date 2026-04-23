@@ -1,25 +1,61 @@
 import 'package:flutter/material.dart';
 import 'package:stellar/widgets/wish_banner.dart';
 import 'package:stellar/native/wish_parser.dart';
-import 'package:stellar/widgets/gi_detail.dart';
+import 'package:stellar/widgets/genshin/gi_detail.dart';
 
-class GIWishResultView extends StatelessWidget {
+class GIWishResultView extends StatefulWidget {
   final List<WishBanner> results;
 
-  const GIWishResultView({
-    super.key,
-    required this.results,
-  });
+  const GIWishResultView({super.key, required this.results});
+
+  @override
+  State<GIWishResultView> createState() => _GIWishResultViewState();
+}
+
+class _GIWishResultViewState extends State<GIWishResultView> {
+  int? _selectedYear;
+  int? _selectedMonth;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeFilters();
+  }
+
+  void _initializeFilters() {
+    if (widget.results.isEmpty) return;
+    
+    // Ambil bulan terbaru yang tersedia dari semua banner
+    for (var banner in widget.results) {
+      for (var stat in banner.monthlyStats) {
+        if (_selectedYear == null || stat.year > _selectedYear! || (stat.year == _selectedYear! && stat.month > _selectedMonth!)) {
+          _selectedYear = stat.year;
+          _selectedMonth = stat.month;
+        }
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final Set<int> availableYears = {};
+    final Map<int, Set<int>> availableMonthsPerYear = {};
+
+    for (var banner in widget.results) {
+      for (var stat in banner.monthlyStats) {
+        availableYears.add(stat.year);
+        availableMonthsPerYear.putIfAbsent(stat.year, () => {}).add(stat.month);
+      }
+    }
+
+    final sortedYears = availableYears.toList()..sort((a, b) => b.compareTo(a));
+
     return ListView.builder(
       padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
-      itemCount: results.isEmpty ? 2 : results.length + 1,
+      itemCount: widget.results.isEmpty ? 2 : widget.results.length + 2,
       itemBuilder: (context, index) {
         if (index == 0) {
-          // Summary Card: Total Pulls & Primos
-          final totalPulls = results.fold<int>(0, (sum, e) => sum + e.totalWishes);
+          final totalPulls = widget.results.fold<int>(0, (sum, e) => sum + e.totalWishes);
           final totalPrimos = totalPulls * 160;
 
           return Card(
@@ -50,7 +86,88 @@ class GIWishResultView extends StatelessWidget {
           );
         }
 
-        if (results.isEmpty && index == 1) {
+        if (index == 1) {
+          if (widget.results.isEmpty) return const SizedBox.shrink();
+          
+          // Hitung statistik untuk periode terpilih
+          int periodicPulls = 0;
+          
+          Map<String, int> globalMonthlyTotal = {};
+
+          for (var banner in widget.results) {
+            for (var stat in banner.monthlyStats) {
+              String key = "${stat.year}-${stat.month}";
+              globalMonthlyTotal[key] = (globalMonthlyTotal[key] ?? 0) + stat.totalPulls;
+              
+              if (stat.year == _selectedYear && stat.month == _selectedMonth) {
+                periodicPulls += stat.totalPulls;
+              }
+            }
+          }
+          
+          String peakLabel = "Peak Spend";
+          int peakPulls = 0;
+          if (globalMonthlyTotal.isNotEmpty) {
+            final peakEntry = globalMonthlyTotal.entries.reduce((a, b) => a.value > b.value ? a : b);
+            peakPulls = peakEntry.value;
+
+            try {
+              final parts = peakEntry.key.split('-');
+              final yearStr = parts[0];
+              final month = int.parse(parts[1]);
+              final monthName = _getMonthName(month);
+              final shortYear = yearStr.substring(yearStr.length - 2);
+              peakLabel = "Peak Spend ($monthName '$shortYear)";
+            } catch (_) {}
+          }
+
+          return Card(
+            margin: const EdgeInsets.only(bottom: 20),
+            color: Colors.white.withOpacity(0.05),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: Colors.white10)),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text("Periodic Analysis", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white70)),
+                      Row(
+                        children: [
+                          _buildSmallDropdown<int>(
+                            value: _selectedYear,
+                            items: sortedYears,
+                            onChanged: (v) => setState(() { _selectedYear = v; _selectedMonth = availableMonthsPerYear[v]!.first; }),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildSmallDropdown<int>(
+                            value: _selectedMonth,
+                            items: (availableMonthsPerYear[_selectedYear] ?? {}).toList()..sort((a, b) => b.compareTo(a)),
+                            labelBuilder: (m) => _getMonthName(m),
+                            onChanged: (v) => setState(() => _selectedMonth = v),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 24, color: Colors.white10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildMetricVertical("Total Pulls", periodicPulls.toString(), Icons.confirmation_number_outlined),
+                      _buildMetricVertical("Primos", "${periodicPulls * 160}", Icons.diamond_outlined, const Color(0xFFCE93D8)),
+                      Container(width: 1, height: 30, color: Colors.white10),
+                      _buildMetricVertical(peakLabel, "${peakPulls * 160} ✦", Icons.trending_up_rounded, Colors.orangeAccent),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        if (widget.results.isEmpty && index == 2) {
           return const Padding(
             padding: EdgeInsets.symmetric(vertical: 60),
             child: Center(
@@ -63,7 +180,7 @@ class GIWishResultView extends StatelessWidget {
           );
         }
 
-        final data = results[index - 1];
+        final data = widget.results[index - 2];
         // Anggap kartu "kosong" jika pity 0 dan tidak ada nama karakter bintang 5
         final bool isEmpty = data.pity == 0 && (data.last5Star == "None" || data.last5Star == "---");
 
@@ -182,6 +299,38 @@ class GIWishResultView extends StatelessWidget {
         );
       },
     );
+  }
+
+  Widget _buildSmallDropdown<T>({required T? value, required List<T> items, required ValueChanged<T?> onChanged, String Function(T)? labelBuilder}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(8)),
+      child: DropdownButton<T>(
+        value: value,
+        items: items.map((i) => DropdownMenuItem<T>(value: i, child: Text(labelBuilder?.call(i) ?? i.toString(), style: const TextStyle(fontSize: 12)))).toList(),
+        onChanged: onChanged,
+        underline: const SizedBox(),
+        isDense: true,
+        dropdownColor: const Color(0xFF1A1625),
+        icon: const Icon(Icons.arrow_drop_down, size: 18),
+      ),
+    );
+  }
+
+  Widget _buildMetricVertical(String label, String value, IconData icon, [Color? color]) {
+    return Column(
+      children: [
+        Icon(icon, size: 18, color: color ?? Colors.white38),
+        const SizedBox(height: 6),
+        Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, fontFamily: 'VT323', color: color ?? Colors.white)),
+        Text(label, style: const TextStyle(fontSize: 10, color: Colors.white38)),
+      ],
+    );
+  }
+
+  String _getMonthName(int month) {
+    const names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return names[month - 1];
   }
 
   void _showDetailDialog(BuildContext context, WishBanner data) {

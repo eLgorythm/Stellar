@@ -1,0 +1,18 @@
+{
+  "guide_title": "搜索中...",
+  "guide_body": "请打开无线调试设置。",
+  "pairing_ready_title": "准备配对",
+  "pairing_input_body": "请输入系统设置中的代码。",
+  "pairing_action_label": "立即配对",
+  "pairing_input_label": "6位配对码",
+  "success_title": "成功",
+  "success_body": "设备已成功配对。",
+  "scanning_gacha_link_title": "正在扫描抽卡链接...",
+  "scanning_gacha_link_body": "请在游戏中打开抽卡记录",
+  "link_retrieved_title": "链接已获取！",
+  "link_retrieved_body": "准备复制",
+  "connecting_title": "连接中...",
+  "connecting_body": "正在建立安全的ADB会话",
+  "connected_title": "已连接",
+  "connected_body": "设备已准备好进行扫描"
+}

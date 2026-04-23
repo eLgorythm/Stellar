@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:stellar/widgets/wish_banner.dart';
-import 'package:stellar/widgets/gi_wish_result_view.dart';
+import 'package:stellar/widgets/genshin/gi_wish_result_view.dart';
 
 class WishResultWrapper extends StatelessWidget {
   final List<WishBanner> results;

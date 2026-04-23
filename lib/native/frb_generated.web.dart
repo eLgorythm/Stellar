@@ -71,7 +71,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<FiveStarHistory> dco_decode_list_five_star_history(dynamic raw);
 
   @protected
+  List<MonthlyStat> dco_decode_list_monthly_stat(dynamic raw);
+
+  @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
+
+  @protected
+  MonthlyStat dco_decode_monthly_stat(dynamic raw);
 
   @protected
   String? dco_decode_opt_String(dynamic raw);
@@ -161,7 +167,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<MonthlyStat> sse_decode_list_monthly_stat(SseDeserializer deserializer);
+
+  @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
+
+  @protected
+  MonthlyStat sse_decode_monthly_stat(SseDeserializer deserializer);
 
   @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
@@ -263,10 +275,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_monthly_stat(
+    List<MonthlyStat> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_prim_u_8_strict(
     Uint8List self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_monthly_stat(MonthlyStat self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_String(String? self, SseSerializer serializer);

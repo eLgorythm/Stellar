@@ -1,0 +1,18 @@
+{
+  "guide_title": "検索中...",
+  "guide_body": "ワイヤレスデバッグ設定を開いてください。",
+  "pairing_ready_title": "ペアリング準備完了",
+  "pairing_input_body": "システム設定からコードを入力してください。",
+  "pairing_action_label": "今すぐペアリング",
+  "pairing_input_label": "6桁のペアリングコード",
+  "success_title": "成功",
+  "success_body": "デバイスが正常にペアリングされました。",
+  "scanning_gacha_link_title": "ガチャリンクをスキャン中...",
+  "scanning_gacha_link_body": "ゲーム内で履歴を開いてください",
+  "link_retrieved_title": "リンク取得完了！",
+  "link_retrieved_body": "コピー準備完了",
+  "connecting_title": "接続中...",
+  "connecting_body": "安全なADBセッションを確立中",
+  "connected_title": "接続済み",
+  "connected_body": "デバイスはスキャン準備完了です"
+}

@@ -14,9 +14,11 @@ class BannerSummary {
   final bool isGuaranteed;
   final int totalWishes;
   final List<FiveStarHistory> history5Star;
+  final List<FiveStarHistory> history4Star;
   final double avgPity;
   final int total4Star;
   final int pity4Star;
+  final List<MonthlyStat> monthlyStats;
 
   const BannerSummary({
     required this.title,
@@ -26,9 +28,11 @@ class BannerSummary {
     required this.isGuaranteed,
     required this.totalWishes,
     required this.history5Star,
+    required this.history4Star,
     required this.avgPity,
     required this.total4Star,
     required this.pity4Star,
+    required this.monthlyStats,
   });
 
   @override
@@ -40,9 +44,11 @@ class BannerSummary {
       isGuaranteed.hashCode ^
       totalWishes.hashCode ^
       history5Star.hashCode ^
+      history4Star.hashCode ^
       avgPity.hashCode ^
       total4Star.hashCode ^
-      pity4Star.hashCode;
+      pity4Star.hashCode ^
+      monthlyStats.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -56,9 +62,11 @@ class BannerSummary {
           isGuaranteed == other.isGuaranteed &&
           totalWishes == other.totalWishes &&
           history5Star == other.history5Star &&
+          history4Star == other.history4Star &&
           avgPity == other.avgPity &&
           total4Star == other.total4Star &&
-          pity4Star == other.pity4Star;
+          pity4Star == other.pity4Star &&
+          monthlyStats == other.monthlyStats;
 }
 
 class CompletedBannerInfo {
@@ -105,17 +113,23 @@ class FiveStarHistory {
   final int pity;
   final String time;
   final bool isStandard;
+  final String itemType;
 
   const FiveStarHistory({
     required this.name,
     required this.pity,
     required this.time,
     required this.isStandard,
+    required this.itemType,
   });
 
   @override
   int get hashCode =>
-      name.hashCode ^ pity.hashCode ^ time.hashCode ^ isStandard.hashCode;
+      name.hashCode ^
+      pity.hashCode ^
+      time.hashCode ^
+      isStandard.hashCode ^
+      itemType.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -125,7 +139,32 @@ class FiveStarHistory {
           name == other.name &&
           pity == other.pity &&
           time == other.time &&
-          isStandard == other.isStandard;
+          isStandard == other.isStandard &&
+          itemType == other.itemType;
+}
+
+class MonthlyStat {
+  final int year;
+  final int month;
+  final int totalPulls;
+
+  const MonthlyStat({
+    required this.year,
+    required this.month,
+    required this.totalPulls,
+  });
+
+  @override
+  int get hashCode => year.hashCode ^ month.hashCode ^ totalPulls.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is MonthlyStat &&
+          runtimeType == other.runtimeType &&
+          year == other.year &&
+          month == other.month &&
+          totalPulls == other.totalPulls;
 }
 
 class ProgressUpdate {
