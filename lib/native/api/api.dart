@@ -19,6 +19,11 @@ Future<String> initPairing({
   storageDir: storageDir,
 );
 
+/// Memulai persiapan sertifikat di latar belakang.
+/// Flutter harus memanggil ini setelah UI utama muncul agar tidak membebani startup.
+Future<void> preWarmAdb({required String storageDir}) =>
+    RustLib.instance.api.crateApiApiPreWarmAdb(storageDir: storageDir);
+
 Future<String> getGachaLink({required int port, required String storageDir}) =>
     RustLib.instance.api.crateApiApiGetGachaLink(
       port: port,

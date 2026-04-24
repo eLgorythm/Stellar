@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:stellar/native/api/api.dart';
 import 'package:stellar/native/frb_generated.dart';
 import 'package:stellar/screens/home.dart';
 import 'package:path_provider/path_provider.dart';
@@ -12,6 +13,9 @@ void main() async {
    // Gunakan external storage (Android/data/...) agar file JSON dapat diakses user secara manual
   final directory = await getExternalStorageDirectory();
   final storagePath = directory?.path ?? (await getApplicationSupportDirectory()).path;
+
+  // Jalankan persiapan sertifikat di latar belakang (tanpa await agar boot tetap cepat)
+  RustLib.instance.api.crateApiApiPreWarmAdb(storageDir: storagePath);
 
   // Set status bar transparan untuk tampilan lebih clean
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(statusBarColor: Colors.transparent));
