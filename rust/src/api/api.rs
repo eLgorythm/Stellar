@@ -20,6 +20,13 @@ pub async fn pre_warm_adb(storage_dir: String) -> anyhow::Result<()> {
     pair::pre_warm_cert(storage_dir).await
 }
 
+/// Memeriksa status pairing yang sebenarnya.
+/// Berbeda dengan sekadar cek file sertifikat, ini memastikan proses pairing
+/// telah diselesaikan sepenuhnya sebelumnya.
+pub fn check_pairing_status(storage_dir: String) -> bool {
+    pair::is_paired(&storage_dir)
+}
+
 pub async fn get_gacha_link(_port: u16, _storage_dir: String) -> anyhow::Result<String> {
     crate::connect::scan_gacha_link().await
 }

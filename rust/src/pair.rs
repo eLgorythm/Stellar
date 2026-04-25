@@ -23,6 +23,7 @@ use sha2::Sha256;
 const EXPORTED_KEY_LABEL: &str = "adb-label\0";
 pub const CLIENT_NAME: &[u8] = b"adb pair client\0";
 pub const SERVER_NAME: &[u8] = b"adb pair server\0";
+const PAIRING_FLAG_FILE: &str = "pairing_success.flag";
 
 const MSG_TYPE_SPAKE2: u8 = 0;
 const MSG_TYPE_PEER_INFO: u8 = 1;
@@ -94,6 +95,11 @@ pub async fn init_pairing(port: u16, pairing_code: String, storage_dir: String) 
     // 6. PeerInfo Exchange (AES-128-GCM)
     info!("[PAIR] [STEP 3/3] PeerInfo Exchange...");
     peer_info_exchange(&mut tls_stream, &shared_key, &storage_dir).await?;
+    
+    // 7. Tandai pairing sukses secara persisten
+    let flag_path = std::path::Path::new(&storage_dir).join(PAIRING_FLAG_FILE);
+    fs::write(flag_path, b"1").await.context("Gagal menulis pairing success flag")?;
+    
     info!("[PAIR] PAIRING COMPLETE X25519!");
 
     Ok("Pairing X25519 berhasil!".to_string())
@@ -294,6 +300,16 @@ where S: AsyncReadExt + AsyncWriteExt + Unpin {
     info!("[PAIR] PEERINFO DECRYPT SUCCESS: {}", peer_info_str);
     
     Ok(())
+}
+
+/// Memeriksa apakah perangkat benar-benar sudah pernah pairing dengan sukses.
+/// Mengembalikan true hanya jika sertifikat DAN flag sukses tersedia.
+pub fn is_paired(storage_dir: &str) -> bool {
+    let cert_path = std::path::Path::new(storage_dir).join("adb_cert.pem");
+    let flag_path = std::path::Path::new(storage_dir).join(PAIRING_FLAG_FILE);
+    
+    // Status Paired valid jika kedua file ini ada
+    cert_path.exists() && flag_path.exists()
 }
 
 /// Mengonversi RSA Public Key ke format mincrypt yang digunakan Android ADB

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:stellar/widgets/wish_banner.dart';
 import 'package:stellar/widgets/genshin/gi_wish_result_view.dart';
+import 'package:stellar/widgets/hsr/hsr_wish_result_view.dart';
 
 class WishResultWrapper extends StatelessWidget {
   final List<WishBanner> results;
@@ -63,7 +64,7 @@ class WishResultWrapper extends StatelessWidget {
       case 'gi':
         return GIWishResultView(results: results);
       case 'hsr':
-        return const Center(child: Text("HSR View (Coming Soon)", style: TextStyle(fontFamily: 'VT323', fontSize: 20)));
+        return HsrWishResultView(results: results);
       case 'zzz':
         return const Center(child: Text("ZZZ View (Coming Soon)", style: TextStyle(fontFamily: 'VT323', fontSize: 20)));
       default:

@@ -50,12 +50,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, UIUtil
     } catch (_) {}
   }
 
-  void _checkInitialStatus() {
-    final certFile = File('${widget.storageDir}/adb_cert.pem');
-    if (certFile.existsSync()) {
-      setState(() => _currentStatus = const StellarStatus.paired());
-    } else {
-      setState(() => _currentStatus = const StellarStatus.idle());
+  void _checkInitialStatus() async {
+    // Menggunakan fungsi dari Rust untuk memverifikasi status pairing yang sebenarnya
+    final isPaired = await RustLib.instance.api.crateApiApiCheckPairingStatus(storageDir: widget.storageDir);
+    
+    if (mounted) {
+      setState(() {
+        _currentStatus = isPaired ? const StellarStatus.paired() : const StellarStatus.idle();
+      });
     }
     _loadSavedLink();
   }
@@ -153,11 +155,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, UIUtil
   Future<void> _handleUnpair() async {
     try {
       final certFile = File('${widget.storageDir}/adb_cert.pem');
-      if (await certFile.exists()) {
-        await certFile.delete();
-      }
+      final flagFile = File('${widget.storageDir}/pairing_success.flag');
+
+      // Hapus kedua file penanda pairing secara paralel
+      await Future.wait([
+        if (await certFile.exists()) certFile.delete(),
+        if (await flagFile.exists()) flagFile.delete(),
+      ]);
     } catch (e) {
-      debugPrint("Failed to delete certificate: $e");
+      debugPrint("Failed to delete pairing files: $e");
     }
 
     if (!mounted) return;
@@ -403,7 +409,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, UIUtil
       case StellarStatus_Error(field0: final msg): 
         isError = true;
         errorMessage = msg;
-        isPaired = File('${widget.storageDir}/adb_cert.pem').existsSync();
+        // Cek manual keberadaan kedua file untuk memastikan status UI tetap sinkron saat error
+        final hasCert = File('${widget.storageDir}/adb_cert.pem').existsSync();
+        final hasFlag = File('${widget.storageDir}/pairing_success.flag').existsSync();
+        isPaired = hasCert && hasFlag;
         statusColor = const Color(0xFFAEEA00);
         break;
     }

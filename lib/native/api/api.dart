@@ -24,6 +24,12 @@ Future<String> initPairing({
 Future<void> preWarmAdb({required String storageDir}) =>
     RustLib.instance.api.crateApiApiPreWarmAdb(storageDir: storageDir);
 
+/// Memeriksa status pairing yang sebenarnya.
+/// Berbeda dengan sekadar cek file sertifikat, ini memastikan proses pairing
+/// telah diselesaikan sepenuhnya sebelumnya.
+Future<bool> checkPairingStatus({required String storageDir}) =>
+    RustLib.instance.api.crateApiApiCheckPairingStatus(storageDir: storageDir);
+
 Future<String> getGachaLink({required int port, required String storageDir}) =>
     RustLib.instance.api.crateApiApiGetGachaLink(
       port: port,
