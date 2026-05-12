@@ -83,7 +83,7 @@ Proses pairing menggunakan empat lapis keamanan:
 ### `connect_to_device`
 **Tujuan:** Membangun koneksi ADB Secure (TLS) ke perangkat yang sudah di-pairing.
 - **Alur:**
-    1.  **Persiapan Sertifikat:** Memuat sertifikat dan kunci privat yang persisten dari penyimpanan internal aplikasi (`/data/user/0/labs.oxfnd.stellar/files/adb_cert.pem`). Ini memastikan kunci yang digunakan untuk koneksi sama dengan yang didaftarkan saat pairing.
+    1.  **Persiapan Sertifikat:** Memuat sertifikat dan kunci privat yang persisten dari penyimpanan internal aplikasi (`${storageDir}/adb_cert.pem`). Ini memastikan kunci yang digunakan untuk koneksi sama dengan yang didaftarkan saat pairing.
     2.  **Negosiasi STLS (Cleartext):**
         *   Client mengirim paket `CNXN` (Connect) awal dalam bentuk teks biasa (`host::\0`).
         *   Membaca respons dari server. Jika server mendukung TLS, ia akan membalas dengan paket `STLS` (Switch to TLS).
