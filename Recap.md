@@ -26,6 +26,7 @@ Proses pairing menggunakan empat lapis keamanan:
     3.  Menggabungkan PIN (6 digit) dengan EKM menjadi satu buffer password.
     4.  Menjalankan `spake2_exchange`.
     5.  Menjalankan `peer_info_exchange` untuk pertukaran identitas terakhir.
+    6.  **Persistence Flag:** Menulis file `pairing_success.flag` di akhir proses untuk menandakan bahwa pairing telah selesai secara fungsional.
 
 ### `setup_tls`
 **Tujuan:** Membangun koneksi terenkripsi asinkron menggunakan `tokio_boring`.
@@ -45,7 +46,7 @@ Proses pairing menggunakan empat lapis keamanan:
 - **IV / Nonce:** Sesuai `aes-gcm-128.cpp` AOSP, IV dimulai sebagai 12-byte nol. Counter enkripsi dan dekripsi bersifat independen dan keduanya dimulai dari 0 untuk paket pertama.
 - **Struktur Data:** Mengikuti struct `PeerInfo` AOSP dengan ukuran tetap **8192 byte**. 
     - Byte 0: Tipe pesan (`0` untuk RSA Public Key).
-    - Byte 1-dst: String Base64 dari kunci RSA + Identifier (`Stellar@Stellar`).
+    - Byte 1-dst: String Base64 dari kunci RSA + Identifier (`Noelynx@Stellar`).
 
 ### `encode_rsa_adb_format`
 **Tujuan:** Mengonversi kunci RSA standar ke format **mincrypt** yang diharapkan oleh daemon `adbd`.
@@ -62,6 +63,22 @@ Proses pairing menggunakan empat lapis keamanan:
     - `[0]`: Versi (1)
     - `[1]`: Tipe Pesan (0=SPAKE2, 1=PeerInfo)
     - `[2-5]`: Panjang Payload (Big Endian i32)
+
+### `pre_warm_cert` & `get_persistent_cert`
+**Tujuan:** Mengoptimalkan performa dengan menyiapkan kredensial RSA sebelum dibutuhkan.
+- **Eager Generation:** Aplikasi memicu pembuatan kunci RSA sesaat setelah dibuka. Karena `RSA::generate(2048)` memakan waktu (bisa >1 detik pada perangkat lama), proses ini dijalankan di thread pool menggunakan `task::spawn_blocking`.
+- **Memory Caching:** Menggunakan `OnceCell` (`CERT_CACHE`) di Rust untuk menyimpan objek `X509` dan `PKey` di RAM setelah pembacaan pertama dari disk atau pembuatan baru. Ini menghilangkan overhead I/O disk pada pemanggilan fungsi berikutnya.
+- **Atomic Storage:** Sertifikat disimpan dalam file gabungan `adb_cert.pem` yang berisi Private Key dan Public Certificate.
+
+### `is_paired` (Verification Logic)
+**Tujuan:** Memastikan status pairing di UI tidak menunjukkan "False Positive".
+- **Pemisahan Logika:** Keberadaan kunci RSA (`adb_cert.pem`) tidak lagi dianggap sebagai indikator "Paired". Sertifikat kini dianggap sebagai *prasyarat* (kredensial), sedangkan status "Paired" hanya valid jika file `pairing_success.flag` ditemukan.
+- **User Experience:** Mencegah tombol di Flutter berubah menjadi "UNPAIR" secara otomatis hanya karena aplikasi berhasil melakukan *pre-warm* sertifikat di latar belakang.
+
+### `is_paired` (Verification Logic)
+**Tujuan:** Memastikan status pairing di UI tidak menunjukkan "False Positive".
+- **Logika:** Fungsi ini memvalidasi keberadaan sertifikat RSA *dan* file `pairing_success.flag`.
+- Hal ini penting karena sertifikat mungkin sudah ada di penyimpanan akibat proses *pre-warm*, namun pairing sebenarnya baru dianggap sah jika seluruh jabat tangan SPAKE2 telah tuntas dan flag berhasil ditulis.
 
 ### `connect_to_device`
 **Tujuan:** Membangun koneksi ADB Secure (TLS) ke perangkat yang sudah di-pairing.
@@ -98,7 +115,9 @@ Kunci utama yang membuat kode ini akhirnya berhasil adalah:
 5.  **IV Counter Reset:** Menggunakan IV nol untuk pesan masuk pertama dari Android untuk sinkronisasi state AES-GCM.
 6.  **Persistensi Sertifikat:** Menyimpan RSA Keypair secara persisten di internal storage agar kredensial tetap valid setelah aplikasi di-restart.
 7.  **Negosiasi STLS yang Benar:** Implementasi transisi protokol dari TCP plaintext ke TLS 1.3 melalui handshake `A_STLS`.
+8.  **Asynchronous RSA Generation:** Menjalankan tugas kriptografi berat di `spawn_blocking` untuk mencegah *jank* (frame drop) pada UI Flutter saat startup.
 8.  **Verifikasi CNXN Server:** Validasi paket `CNXN` terenkripsi pasca-TLS untuk memastikan integritas sesi ADB.
+9.  **Pairing Success Flag:** Penggunaan file penanda khusus untuk sinkronisasi status UI yang lebih akurat, mencegah tombol berubah menjadi "UNPAIR" sebelum proses pairing benar-benar selesai.
 
 ## 4. Status Log
 Berdasarkan `Success.md`:
@@ -118,7 +137,7 @@ Berdasarkan `Success.md`:
 - **Filtering**: Menggunakan `grep -v 'DART:'` untuk mencegah aplikasi menangkap log-nya sendiri yang berisi URL yang sedang diproses.
 
 ## 6. Persistensi & Riwayat
-- **Penyimpanan Lokal**: Link gacha terakhir disimpan secara otomatis ke `${storageDir}/gacha_link.txt`.
+- **Penyimpanan Lokal**: Link gacha terakhir disimpan secara otomatis ke `${storageDir}/gacha_history.txt`.
 - **Manajemen File**: Menggunakan mode penulisan yang menimpa isi lama (overwrite) karena link biasanya hanya berlaku selama 24 jam.
 - **UI History**: Penambahan dialog riwayat yang dapat diakses melalui ikon jam di AppBar untuk memudahkan penyalinan ulang link tanpa harus memicu sesi ADB baru.
 
@@ -149,7 +168,7 @@ Fitur ini memungkinkan pengguna mengunduh riwayat gacha secara permanen dan meng
 
 ### Detail Teknis Keberhasilan Parser:
 1.  **ID-Based Integrity:** Menggunakan ID unik dari server sebagai kunci utama, bukan index array, sehingga data tetap valid jika ada penggabungan riwayat lama dan baru.
-2.  **Rate Limit Awareness:** Implementasi delay kecil (200ms) antar request halaman API untuk mencegah blokir IP sementara dari server HoYoverse.
+2.  **Rate Limit Awareness:** Implementasi delay 1 detik (1000ms) antar request halaman API untuk mencegah blokir IP sementara dari server HoYoverse.
 3.  **UI Consistency:** Pengurutan manual pada hasil akhir `BannerSummary` agar posisi kartu di UI tetap konsisten (Event -> Weapon -> Standard).
 4.  **Base64/URL Sanitization:** Pembersihan otomatis karakter kutipan atau spasi pada URL gacha yang seringkali terbawa dari hasil *copy-paste* atau logcat.
 
