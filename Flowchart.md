@@ -32,6 +32,9 @@ graph TD
         A_Pair[adbd Pairing Service]
         A_Conn[adbd Connection Service]
         A_Log[(System Logcat)]
+        
+        %% Invisible links to force vertical elongation
+        A_Pair ~~~ A_Conn ~~~ A_Log
     end
 
     %% --- ALUR PAIRING ---
