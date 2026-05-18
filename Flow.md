@@ -24,20 +24,16 @@ sequenceDiagram
     Note over R: EKM = Exported Keying Material (64-byte)
     Note over R: Password = PIN + EKM
     
-    rect rgb(245, 245, 245)
-        Note right of R: SPAKE2 Exchange (6-byte ADB Header)
-        R->>A: MSG_TYPE_SPAKE2 (MSG1: Masked Point)
-        A-->>R: MSG_TYPE_SPAKE2 (MSG2: Server Point)
-    end
+    Note right of R: SPAKE2 Exchange (6-byte ADB Header)
+    R->>A: MSG_TYPE_SPAKE2 (MSG1: Masked Point)
+    A-->>R: MSG_TYPE_SPAKE2 (MSG2: Server Point)
     
     Note over R: Derive Shared Key (64-byte)
     Note over R: HKDF-SHA256 Expansion -> AES-128-GCM Key
     
-    rect rgb(245, 245, 245)
-        Note right of R: PeerInfo Exchange (Encrypted)
-        R->>A: MSG_TYPE_PEER_INFO (Encrypted Client Profil)
-        A-->>R: MSG_TYPE_PEER_INFO (Encrypted Server Profil)
-    end
+    Note right of R: PeerInfo Exchange (Encrypted)
+    R->>A: MSG_TYPE_PEER_INFO (Encrypted Client Profil)
+    A-->>R: MSG_TYPE_PEER_INFO (Encrypted Server Profil)
     
     Note over R: Save pairing_success.flag
 ```
@@ -69,24 +65,18 @@ sequenceDiagram
     Note over R: Load adb_cert.pem
     R->>A: TCP Connect (Port Wireless Debugging)
     
-    rect rgb(245, 245, 245)
-        Note right of R: PHASE 1: STLS Negotiation (Plaintext)
-        R->>A: A_CNXN (banner: "host::")
-        A-->>R: A_STLS (Signal Upgrade)
-        R->>A: A_STLS (Confirm Upgrade)
-    end
+    Note right of R: PHASE 1: STLS Negotiation (Plaintext)
+    R->>A: A_CNXN (banner: "host::")
+    A-->>R: A_STLS (Signal Upgrade)
+    R->>A: A_STLS (Confirm Upgrade)
     
-    rect rgb(245, 245, 245)
-        Note right of R: PHASE 2: TLS Upgrade
-        R->>A: TLS Handshake (Using Trusted Cert)
-        A-->>R: TLS Established
-    end
+    Note right of R: PHASE 2: TLS Upgrade
+    R->>A: TLS Handshake (Using Trusted Cert)
+    A-->>R: TLS Established
 
-    rect rgb(245, 245, 245)
-        Note right of R: PHASE 3: Secure Session
-        A-->>R: A_CNXN (Encrypted Device Info)
-        Note over R: Store SslStream in ACTIVE_SESSION
-    end
+    Note right of R: PHASE 3: Secure Session
+    A-->>R: A_CNXN (Encrypted Device Info)
+    Note over R: Store SslStream in ACTIVE_SESSION
 ```
 
 ### Struktur Paket ADB (24 byte Header)
