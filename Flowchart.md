@@ -57,7 +57,7 @@ graph TD
         A_Log[(System Logcat)]
     end
 
-    % UI to Logic Connections
+    %% UI to Logic Connections
     PairBtn --> MDNS_P[mDNS Discovery: _adb-tls-pairing._tcp]
     MDNS_P --> Rust_Pair
     InputCode --> Rust_Pair
@@ -74,7 +74,7 @@ graph TD
     ScanBtn --> Rust_Scan
     Rust_Scan --> Shell
 
-    % Logic to ADBD Connections (The "Participant" Interactions)
+    %% Logic to ADBD Connections (The "Participant" Interactions)
     MSG1 -- TCP/TLS --> A_Pair
     A_Pair -- Return MSG2 --> MSG2
     EncOut -- Encrypted --> A_Pair
