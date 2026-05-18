@@ -39,7 +39,6 @@ This application uses the Self-Pairing technique, where the application acts as 
 
 If you find this project helpful and want to support its development, you can buy me a coffee!
 
-- [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Donate-orange?style=for-the-badge&logo=buy-me-a-coffee)](https://www.buymeacoffee.com/elfnd)
 - [![Saweria](https://img.shields.io/badge/Saweria-Donate-yellow?style=for-the-badge&logo=google-pay&logoColor=white)](https://saweria.co/0xfndlabs)
 
 ## ⚖️ License
