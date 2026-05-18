@@ -14,15 +14,16 @@ sequenceDiagram
     participant A as Android adbd
 
     U->>F: Tap PAIR
-    F->>F: Start mDNS Discovery (_adb-tls-pairing)
+    F->>F: Start mDNS Discovery (_adb-tls-pairing._tcp)
     F->>U: Show "Ready to Pair" Notification
     U->>F: Input 6-digit PIN
     F->>R: init_pairing(port, PIN, storage_dir)
     
+    Note over R: Load/Generate adb_cert.pem
     R->>A: 1. TLS 1.3 Handshake (Self-signed Cert)
     A-->>R: TLS Established
     
-    Note over R: Export Keying Material (EKM) 64-bit
+    Note over R: Export Keying Material (EKM) 64-byte
     Note over R: Password = PIN + EKM
     
     R->>A: 2. SPAKE2 MSG1 (Outbound)
@@ -33,7 +34,7 @@ sequenceDiagram
     R->>A: 3. PeerInfo Exchange (Encrypted RSA PubKey)
     A-->>R: PeerInfo Response (Encrypted)
     
-    Note over R: Save Cert to adb_cert.pem
+    Note over R: Save pairing_success.flag
     R-->>F: Return Success
     F->>U: Show "Pairing Success"
 ```
@@ -48,7 +49,7 @@ sequenceDiagram
     participant R as Rust (connect.rs)
     participant A as Android adbd
 
-    F->>F: Start mDNS Discovery (_adb-tls-connect)
+    F->>F: Start mDNS Discovery (_adb-tls-connect._tcp)
     F->>R: connect_to_device(addr, storage_dir)
     
     R->>R: Load adb_cert.pem from storage
@@ -74,5 +75,5 @@ sequenceDiagram
 ## Keterangan Teknis
 
 - **SPAKE2:** Digunakan untuk otentikasi berbasis password tanpa mengirimkan password asli melalui jaringan.
-- **EKM:** Menjamin bahwa sesi SPAKE2 terikat secara kriptografis ke sesi TLS yang aktif.
+- **EKM:** Menjamin bahwa sesi SPAKE2 terikat secara kriptografis ke sesi TLS yang aktif (Stellar menggunakan 64-byte material).
 - **STLS:** Protokol transisi milik ADB untuk meningkatkan koneksi dari TCP biasa ke TLS (Secure ADB).

@@ -14,11 +14,12 @@ graph TD
     end
 
     subgraph Logic_Pairing [Fase Pairing]
-        PairBtn --> MDNS_P[mDNS Discovery: _adb-tls-pairing]
+        PairBtn --> MDNS_P[mDNS Discovery: _adb-tls-pairing._tcp]
         MDNS_P --> Rust_Pair[Rust: init_pairing]
         InputCode --> Rust_Pair
-        Rust_Pair --> TLS_P[TLS Handshake]
-        TLS_P --> EKM[Export Keying Material]
+        Rust_Pair --> Cert[Load/Gen adb_cert.pem]
+        Cert --> TLS_P[TLS Handshake]
+        TLS_P --> EKM[Export Keying Material - 64-byte]
         EKM --> SPAKE2[SPAKE2 Exchange: Shared Key]
         SPAKE2 --> PeerInfo[PeerInfo Exchange: RSA PubKey]
         PeerInfo --> Flag[Simpan pairing_success.flag]
@@ -27,7 +28,7 @@ graph TD
 
     subgraph Logic_Connection [Fase Koneksi]
         Paired -- True --> ConnBtn
-        ConnBtn --> MDNS_C[mDNS Discovery: _adb-tls-connect]
+        ConnBtn --> MDNS_C[mDNS Discovery: _adb-tls-connect._tcp]
         MDNS_C --> Rust_Conn[Rust: connect_to_device]
         Rust_Conn --> CNXN_C[Send ADB CNXN - Cleartext]
         CNXN_C --> STLS[Upgrade to STLS]
@@ -53,12 +54,14 @@ graph TD
 
 ### 1. Pairing (Self-Pairing)
 Stellar menggunakan teknik *self-pairing* di mana aplikasi bertindak sebagai klien ADB untuk dirinya sendiri.
-- **mDNS:** Digunakan untuk menemukan port acak yang dibuka oleh sistem Android untuk layanan pairing.
+- **mDNS:** Digunakan untuk menemukan port acak yang dibuka oleh sistem Android untuk layanan pairing (`_adb-tls-pairing._tcp`).
 - **SPAKE2:** Protokol pertukaran kunci yang aman berdasarkan password (pairing code).
-- **Certificates:** Stellar men-generate sertifikat RSA self-signed yang disimpan secara lokal untuk otentikasi di masa mendatang.
+- **EKM:** Exported Keying Material sebesar 64-byte yang menggabungkan PIN untuk keamanan tambahan.
+- **Certificates:** Stellar men-generate sertifikat RSA self-signed yang disimpan secara lokal (`adb_cert.pem`) untuk otentikasi di masa mendatang.
 
 ### 2. Connection
 Setelah pairing sukses, Stellar tidak perlu lagi meminta kode pairing.
+- **mDNS:** Menemukan port layanan koneksi (`_adb-tls-connect._tcp`).
 - **STLS:** Upgrade koneksi TCP biasa ke TLS (Secure) sesuai spesifikasi ADB modern (Android 11+).
 - **Session Persistence:** Sesi TLS disimpan dalam `ACTIVE_SESSION` di memori Rust untuk digunakan kembali saat scanning.
 
