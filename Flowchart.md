@@ -4,10 +4,10 @@ Diagram ini menjelaskan bagaimana Stellar berkomunikasi dengan sistem Android me
 
 ```mermaid
 graph TD
-    %% Definisi Style agar lebih enak dilihat
-    classDef ui fill:#e1f5fe,stroke:#01579b
-    classDef rust fill:#f3e5f5,stroke:#4a148c
-    classDef adb fill:#fff3e0,stroke:#e65100
+    %% Definisi Style agar lebih enak dilihat dan terbaca jelas
+    classDef ui fill:#e1f5fe,stroke:#01579b,color:#01579b
+    classDef rust fill:#f3e5f5,stroke:#4a148c,color:#4a148c
+    classDef adb fill:#fff3e0,stroke:#e65100,color:#bf360c
 
     subgraph User_Interface [User Interface - Flutter]
         Start([Mulai])
