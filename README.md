@@ -35,6 +35,13 @@ This application uses the Self-Pairing technique, where the application acts as 
 - **Ephemeral Keys:** TLS certificates are generated uniquely per device and stored in a secure internal directory of the app.
 - **Data Ownership:** Your wish history is stored as JSON files only on your device's internal storage.
 
+## ☕ Support Me
+
+If you find this project helpful and want to support its development, you can buy me a coffee!
+
+- [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Donate-orange?style=for-the-badge&logo=buy-me-a-coffee)](https://www.buymeacoffee.com/elfnd)
+- [![Saweria](https://img.shields.io/badge/Saweria-Donate-yellow?style=for-the-badge&logo=google-pay&logoColor=white)](https://saweria.co/0xfndlabs)
+
 ## ⚖️ License
 
 This project was developed for educational purposes and as a personal tool. Stellar is not affiliated with HoYoverse. Use of this application is subject to each game's privacy policy and terms of service.
